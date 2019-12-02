@@ -4,7 +4,7 @@ import "core:math"
 
 import "shared:sgl"
 
-angle := 0.0;
+t := 0.0;
 projection: sgl.M4;
 
 init :: proc() {
@@ -12,7 +12,7 @@ init :: proc() {
 }
 
 tick :: proc() {
-    angle += 0.01;
+    t += 0.01;
 }
 
 render :: proc(r: ^sgl.Renderer) {
@@ -28,20 +28,20 @@ render :: proc(r: ^sgl.Renderer) {
         
         m := sgl.mul(projection, translation);
 
+        color := sgl.Color{0, 1, 0, 1};
+
         sgl.fill_triangle(
             r,
-            sgl.mul(a, m),
-            sgl.mul(b, m),
-            sgl.mul(c, m),
-            sgl.Color{0x00, 0xFF, 0x00, 0xFF}
+            sgl.Vertex{sgl.mul(a, m), color},
+            sgl.Vertex{sgl.mul(b, m), color},
+            sgl.Vertex{sgl.mul(c, m), color}
         );
 
         sgl.fill_triangle(
             r,
-            sgl.mul(c, m),
-            sgl.mul(d, m),
-            sgl.mul(a, m),
-            sgl.Color{0x00, 0xFF, 0x00, 0xFF}
+            sgl.Vertex{sgl.mul(c, m), color},
+            sgl.Vertex{sgl.mul(d, m), color},
+            sgl.Vertex{sgl.mul(a, m), color}
         );
     }
 
@@ -51,16 +51,15 @@ render :: proc(r: ^sgl.Renderer) {
         c := sgl.V4{1, -1, 0, 1};
 
         translation := sgl.make_translation(sgl.V3{0, 0, 3});
-        rotation := sgl.make_rotation(sgl.V3{0, 1, 0}, angle);
+        rotation := sgl.make_rotation(sgl.V3{0, 1, 0}, t);
         
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
         sgl.fill_triangle(
             r,
-            sgl.mul(a, m),
-            sgl.mul(b, m),
-            sgl.mul(c, m),
-            sgl.Color{0xFF, 0x00, 0x00, 0xFF}
+            sgl.Vertex{sgl.mul(a, m), sgl.Color{1, 0, 0, 1}},
+            sgl.Vertex{sgl.mul(b, m), sgl.Color{0, 1, 0, 1}},
+            sgl.Vertex{sgl.mul(c, m), sgl.Color{0, 0, 1, 1}}
         );
     }
 }

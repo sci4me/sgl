@@ -101,6 +101,9 @@ main :: proc() {
 
     timer := glfw.GetTime();
 
+    depth_buffer := make([]f64, WIDTH * HEIGHT);
+    defer delete(depth_buffer);
+
     for glfw.WindowShouldClose(window) == glfw.FALSE {
         glfw.PollEvents();
 
@@ -118,9 +121,9 @@ main :: proc() {
 
             ptr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY);
             if ptr != nil {
-                pixels := mem.slice_ptr(cast(^sgl.Color)ptr, WIDTH * HEIGHT);
+                pixels := mem.slice_ptr(cast(^sgl.Pixel)ptr, WIDTH * HEIGHT);
                 buffer := sgl.Bitmap{pixels, WIDTH, HEIGHT};
-                renderer := sgl.Renderer{&buffer, sgl.make_screen_space_transform(f64(WIDTH), f64(HEIGHT))};
+                renderer := sgl.Renderer{&buffer, depth_buffer, sgl.make_screen_space_transform(f64(WIDTH), f64(HEIGHT))};
         
                 tick();
                 render(&renderer);

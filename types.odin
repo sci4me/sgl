@@ -4,7 +4,27 @@ import "core:math"
 import "core:math/linalg"
 
 Color :: struct {
+    r, g, b, a: f64
+}
+
+Pixel :: struct {
     r, g, b, a: u8
+}
+
+color_to_pixel :: inline proc(color: Color) -> Pixel {
+    return Pixel{u8(color.r * 255 + 0.5), u8(color.g * 255 + 0.5), u8(color.b * 255 + 0.5), u8(color.a * 255 + 0.5)};
+}
+
+mul_color :: proc(c: Color, s: f64) -> Color {
+    return Color{c.r * s, c.g * s, c.b * s, c.a * s};
+}
+
+add_color :: proc(a, b: Color) -> Color {
+    return Color{a.r + b.r, a.g + b.g, a.b + b.b, a.a + b.a};
+}
+
+sub_color :: proc(a, b: Color) -> Color {
+    return Color{a.r - b.r, a.g - b.g, a.b - b.b, a.a - b.a};
 }
 
 V2 :: distinct [2]f64;
@@ -12,6 +32,11 @@ V3 :: distinct [3]f64;
 V4 :: distinct [4]f64;
 
 M4 :: distinct [4][4]f64;
+
+Vertex :: struct {
+    pos: V4,
+    color: Color
+}
 
 make_identity :: inline proc() -> M4 {
     return M4{
@@ -27,8 +52,8 @@ make_screen_space_transform :: inline proc(width, height: f64) -> M4 {
     j := height / 2;
     k := -j;
     return M4{
-        {i, 0, 0, i},
-        {0, k, 0, j},
+        {i, 0, 0, i - 0.5},
+        {0, k, 0, j - 0.5},
         {0, 0, 1, 0},
         {0, 0, 0, 1},
     };
@@ -99,8 +124,6 @@ mul_matrix_vector :: inline proc(v: V4, m: M4) -> V4 {
         m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
         m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w,
     };
-
-    // return linalg.mul(m, v);
 }
 
 mul :: proc{mul_matrix, mul_matrix_vector};
