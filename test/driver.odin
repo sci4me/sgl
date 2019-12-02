@@ -101,8 +101,6 @@ main :: proc() {
 
     timer := glfw.GetTime();
 
-    scan_buffer := make([]int, HEIGHT * 2);
-
     for glfw.WindowShouldClose(window) == glfw.FALSE {
         glfw.PollEvents();
 
@@ -122,7 +120,7 @@ main :: proc() {
             if ptr != nil {
                 pixels := mem.slice_ptr(cast(^sgl.Color)ptr, WIDTH * HEIGHT);
                 buffer := sgl.Bitmap{pixels, WIDTH, HEIGHT};
-                renderer := sgl.Renderer{&buffer, scan_buffer, sgl.make_screen_space_transform(f64(WIDTH), f64(HEIGHT))};
+                renderer := sgl.Renderer{&buffer, sgl.make_screen_space_transform(f64(WIDTH), f64(HEIGHT))};
         
                 tick();
                 render(&renderer);
