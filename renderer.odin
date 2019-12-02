@@ -66,7 +66,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: V4, color: Color) {
 
         for y in int(y_start)..<int(y_end) {
             if y < 0 || y >= r.fb.height do continue;
-            
+        
             r.scan_buffer[y * 2 + side] = int(x);
             x += x_step;
         }

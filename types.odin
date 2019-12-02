@@ -25,7 +25,7 @@ make_identity :: inline proc() -> M4 {
 make_screen_space_transform :: inline proc(width, height: f64) -> M4 {
     i := width / 2;
     j := height / 2;
-    k := j; // TODO: should be -j
+    k := -j;
     return M4{
         {i, 0, 0, i},
         {0, k, 0, j},
@@ -71,7 +71,7 @@ make_rotation :: inline proc(v: V3, a: f64) -> M4 {
 
 make_perspective :: inline proc(fovy, aspect, near, far: f64) -> M4 {
     tan_half_fovy := math.tan(fovy);
-    z_range := far - near;
+    z_range := near - far;
     return M4{
         {1 / (tan_half_fovy * aspect), 0, 0, 0},
         {0, 1 / tan_half_fovy, 0, 0},

@@ -18,9 +18,9 @@ tick :: proc() {
 render :: proc(r: ^sgl.Renderer) {
     sgl.clear(r, sgl.Color{0, 0, 0, 0xFF});
 
-    a := sgl.V4{-0.3, -0.3, 0, 1};
-    b := sgl.V4{0, 0.3, 0, 1};
-    c := sgl.V4{0.3, -0.3, 0, 1};
+    a := sgl.V4{-1, -1, 0, 1};
+    b := sgl.V4{0, 1, 0, 1};
+    c := sgl.V4{1, -1, 0, 1};
 
     translation := sgl.make_translation(sgl.V3{0, 0, 3});
     rotation := sgl.make_rotation(sgl.V3{0, 1, 0}, angle);
