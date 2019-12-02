@@ -70,13 +70,13 @@ make_rotation :: inline proc(v: V3, a: f64) -> M4 {
 }
 
 make_perspective :: inline proc(fovy, aspect, near, far: f64) -> M4 {
-    tan_half_fovy := math.tan(fovy);
-    z_range := near - far;
+    tan_half_fovy := math.tan(0.5 * math.to_radians(fovy));
+    z_range := far - near;
     return M4{
-        {1 / (tan_half_fovy * aspect), 0, 0, 0},
+        {1 / (aspect * tan_half_fovy), 0, 0, 0},
         {0, 1 / tan_half_fovy, 0, 0},
-        {0, 0, (-near - far) / z_range, 2 * far * near / z_range},
-        {0, 0, 1, 0}
+        {0, 0, -(far + near) / z_range, -1},
+        {0, 0, -2 * far * near / z_range, 0}
     };
 }
 

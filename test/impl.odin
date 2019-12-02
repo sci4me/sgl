@@ -8,7 +8,7 @@ angle := 0.0;
 projection: sgl.M4;
 
 init :: proc() {
-    projection = sgl.make_perspective(math.to_radians_f64(70), f64(WIDTH)/f64(HEIGHT), 0.1, 1000);
+    projection = sgl.make_perspective(70, f64(WIDTH)/f64(HEIGHT), 0.1, 1000);
 }
 
 tick :: proc() {

@@ -66,7 +66,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: V4, color: Color) {
 
         for y in int(y_start)..<int(y_end) {
             if y < 0 || y >= r.fb.height do continue;
-        
+
             r.scan_buffer[y * 2 + side] = int(x);
             x += x_step;
         }
@@ -92,7 +92,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: V4, color: Color) {
     if max.y < mid.y do swap(&max, &mid);
     if mid.y < min.y do swap(&mid, &min);
     if max.y < mid.y do swap(&max, &mid);
-    
+
     f := linalg.cross2(V2{min.x - max.x, min.y - max.y}, V2{min.x - mid.x, min.y - max.y});
 
     scan_convert_triangle(r, min, mid, max, f > 0 ? 1 : 0);
