@@ -11,8 +11,8 @@ init :: proc() {
     projection = sgl.make_perspective(70, f64(WIDTH)/f64(HEIGHT), 0.1, 1000);
 }
 
-tick :: proc() {
-    t += 0.01;
+tick :: proc(dt: f64) {
+    t += 1 * dt;
 }
 
 render :: proc(r: ^sgl.Renderer) {
@@ -24,7 +24,7 @@ render :: proc(r: ^sgl.Renderer) {
         c := sgl.V4{1, 1, 0, 1};
         d := sgl.V4{1, -1, 0, 1};        
 
-        translation := sgl.make_translation(sgl.V3{0, 0, 3});
+        translation := sgl.make_translation(sgl.V3{0, 0, 3.5});
         
         m := sgl.mul(projection, translation);
 

@@ -99,10 +99,11 @@ main :: proc() {
 
     init();
 
-    timer := glfw.GetTime();
-
     depth_buffer := make([]f64, WIDTH * HEIGHT);
     defer delete(depth_buffer);
+
+    timer := glfw.GetTime();
+    last := timer;
 
     for glfw.WindowShouldClose(window) == glfw.FALSE {
         glfw.PollEvents();
@@ -125,7 +126,11 @@ main :: proc() {
                 buffer := sgl.Bitmap{pixels, WIDTH, HEIGHT};
                 renderer := sgl.Renderer{&buffer, depth_buffer, sgl.make_screen_space_transform(f64(WIDTH), f64(HEIGHT))};
         
-                tick();
+                now := glfw.GetTime();
+                diff := now - last;
+                last = now;
+
+                tick(diff);
                 render(&renderer);
         
                 frames += 1;
