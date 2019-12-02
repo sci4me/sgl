@@ -38,13 +38,9 @@ get_scan_line :: inline proc(scan_buffer: []int, y: int) -> (int, int) {
 
 @private
 fill_shape :: inline proc(r: ^Renderer, scan_buffer: []int, y_min, y_max: int, color: Color) {
-    if y_min < 0 || y_max >= r.fb.height do return;
-
     for y in y_min..<y_max {
         x_min, x_max := get_scan_line(scan_buffer, y);
         
-        if x_min < 0 || x_max > r.fb.width do continue;
-
         for x in x_min..<x_max do r.fb.data[x + y * r.fb.width] = color;
     }
 }
@@ -65,8 +61,6 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: V4, color: Color) {
         x := x_start;
 
         for y in int(y_start)..<int(y_end) {
-            if y < 0 || y >= r.fb.height do continue;
-
             r.scan_buffer[y * 2 + side] = int(x);
             x += x_step;
         }
