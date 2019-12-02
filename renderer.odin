@@ -1,5 +1,6 @@
 package sgl
 
+import "core:math"
 import "core:math/linalg"
 
 Renderer :: struct {
@@ -47,21 +48,22 @@ fill_shape :: inline proc(r: ^Renderer, scan_buffer: []int, y_min, y_max: int, c
 
 fill_triangle :: proc(r: ^Renderer, a, b, c: V4, color: Color) {
     scan_convert_line :: inline proc(r: ^Renderer, y_min_vert, y_max_vert: V4, side: int) {
-        x_start := y_min_vert.x;
-        y_start := y_min_vert.y;
-        x_end := y_max_vert.x;
-        y_end := y_max_vert.y;
+        x_start := int(math.ceil(y_min_vert.x));
+        y_start := int(math.ceil(y_min_vert.y));
+        x_end :=   int(math.ceil(y_max_vert.x));
+        y_end :=   int(math.ceil(y_max_vert.y));
 
-        x_dist := x_end - x_start;
-        y_dist := y_end - y_start;
+        x_dist := y_max_vert.x - y_min_vert.x;
+        y_dist := y_max_vert.y - y_min_vert.y;
 
         if y_dist <= 0 do return;
 
         x_step := x_dist / y_dist;
-        x := x_start;
+        y_prestep := f64(y_start) - y_min_vert.y;
+        x := y_min_vert.x + y_prestep * x_step;
 
         for y in int(y_start)..<int(y_end) {
-            r.scan_buffer[y * 2 + side] = int(x);
+            r.scan_buffer[y * 2 + side] = int(math.ceil(x));
             x += x_step;
         }
     }
@@ -91,5 +93,5 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: V4, color: Color) {
 
     scan_convert_triangle(r, min, mid, max, f > 0 ? 1 : 0);
 
-    fill_shape(r, scan_buffer, int(min.y), int(max.y), color);
+    fill_shape(r, scan_buffer, int(math.ceil(min.y)), int(math.ceil(max.y)), color);
 }
