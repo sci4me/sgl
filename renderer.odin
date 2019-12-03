@@ -62,6 +62,15 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         return (((values[1] - values[2]) * (min.x - max.x)) - ((values[0] - values[2]) * (mid.x - max.x))) * one_over_dy;
     } 
 
+    calc_color_step :: inline proc(values: [3]Color, min, mid, max: V4, s: f64, fn: proc(values: [3]f64, min, mid, max: V4, s: f64) -> f64) -> Color {
+        return Color{
+            fn({values[0].r, values[1].r, values[2].r}, min, mid, max, s),
+            fn({values[0].g, values[1].g, values[2].g}, min, mid, max, s),
+            fn({values[0].b, values[1].b, values[2].b}, min, mid, max, s),
+            fn({values[0].a, values[1].a, values[2].a}, min, mid, max, s)
+        };
+    }
+
     make_gradients :: inline proc(min, mid, max: Vertex) -> Gradients {
         using g: Gradients;
 
@@ -80,8 +89,8 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         z[1] = mid.pos.z;
         z[2] = max.pos.z;
 
-        color_x_step = mul_color(sub_color(mul_color(sub_color(color[1], color[2]), min.pos.y - max.pos.y), mul_color(sub_color(color[0], color[2]), mid.pos.y - max.pos.y)), one_over_dx);
-        color_y_step = mul_color(sub_color(mul_color(sub_color(color[1], color[2]), min.pos.x - max.pos.x), mul_color(sub_color(color[0], color[2]), mid.pos.x - max.pos.x)), one_over_dy);
+        color_x_step = calc_color_step(color, min.pos, mid.pos, max.pos, one_over_dx, calc_x_step);
+        color_y_step = calc_color_step(color, min.pos, mid.pos, max.pos, one_over_dy, calc_y_step);
 
         one_over_w_x_step = calc_x_step(one_over_w, min.pos, mid.pos, max.pos, one_over_dx);
         one_over_w_y_step = calc_y_step(one_over_w, min.pos, mid.pos, max.pos, one_over_dy);
@@ -133,11 +142,11 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
 
         color_x_step := mul_color(sub_color(right.color, left.color), 1 / x_dist);
         one_over_w_x_step := (right.one_over_w - left.one_over_w) / x_dist;
-        z_step := (right.z - left.z) / x_dist;
+        z_x_step := (right.z - left.z) / x_dist;
 
         color := add_color(left.color, mul_color(color_x_step, x_prestep));
         one_over_w := left.one_over_w + one_over_w_x_step * x_prestep;
-        z := left.z + z_step * x_prestep;
+        z := left.z + z_x_step * x_prestep;
 
         for x in x_min..<x_max {
             i := x + y * r.fb.width;
@@ -150,7 +159,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
 
             color = add_color(color, color_x_step);
             one_over_w += one_over_w_x_step;
-            z += z_step;
+            z += z_x_step;
         }
     }
 
