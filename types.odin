@@ -33,6 +33,16 @@ V4 :: distinct [4]f64;
 
 M4 :: distinct [4][4]f64;
 
+triangle_area_times_two :: proc(a, b, c: V4) -> f64 {
+    x1 := b.x - a.x;
+    y1 := b.y - a.y;
+
+    x2 := c.x - a.x;
+    y2 := c.y - a.y;
+
+    return (x1 * y2 - x2 * y1);
+}
+
 Vertex :: struct {
     pos: V4,
     color: Color

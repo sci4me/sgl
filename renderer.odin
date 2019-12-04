@@ -2,7 +2,6 @@ package sgl
 
 import "core:fmt"
 import "core:math"
-import "core:math/linalg"
 
 Renderer :: struct {
     fb: ^Bitmap,
@@ -193,7 +192,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     if mid.pos.y < min.pos.y do swap(&mid, &min);
     if max.pos.y < mid.pos.y do swap(&max, &mid);
 
-    handedness := linalg.cross2(V2{min.pos.x - max.pos.x, min.pos.y - max.pos.y}, V2{min.pos.x - mid.pos.x, min.pos.y - max.pos.y}) > 0;
+    handedness := triangle_area_times_two(min.pos, max.pos, mid.pos) > 0;
     
     gradients := make_gradients(min, mid, max);
 
