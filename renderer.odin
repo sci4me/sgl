@@ -152,13 +152,11 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         for x in x_min..<x_max {
             i := x + y * r.fb.width;
 
-            if i >= 0 && i < r.fb.width*r.fb.height {
-                if z < r.depth_buffer[i] {
-                    r.depth_buffer[i] = z;
+            if z < r.depth_buffer[i] {
+                r.depth_buffer[i] = z;
 
-                    w := 1 / one_over_w;
-                    draw_pixel(r.fb, x, y, mul_color(color, w));
-                }
+                w := 1 / one_over_w;
+                draw_pixel(r.fb, x, y, mul_color(color, w));
             }
 
             color = add_color(color, color_x_step);
