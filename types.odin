@@ -94,11 +94,12 @@ make_screen_space_transform :: inline proc(width, height: f64) -> M4 {
 }
 
 make_translation :: inline proc(v: V3) -> M4 {
-    m := make_identity();
-    m[3][0] = v[0];
-    m[3][1] = v[1];
-    m[3][2] = v[2];
-    return m;
+    return M4{
+        {1, 0, 0, v.x},
+        {0, 1, 0, v.y},
+        {0, 0, 1, v.z},
+        {0, 0, 0, 1}
+    };
 }
 
 make_rotation :: inline proc(v: V3, a: f64) -> M4 {
@@ -130,22 +131,20 @@ make_rotation :: inline proc(v: V3, a: f64) -> M4 {
 
 make_perspective :: inline proc(fovy, aspect, near, far: f64) -> M4 {
     tan_half_fovy := math.tan(0.5 * math.to_radians(fovy));
-    z_range := far - near;
+    z_range := near - far;
     return M4{
         {1 / (aspect * tan_half_fovy), 0, 0, 0},
         {0, 1 / tan_half_fovy, 0, 0},
-        {0, 0, -(far + near) / z_range, -1},
-        {0, 0, -2 * far * near / z_range, 0}
+        {0, 0, (-near - far) / z_range, 2 * far * near / z_range},
+        {0, 0, 1, 0}
     };
 }
 
 mul_matrix :: inline proc(a, b: M4) -> M4 {
     c: M4;
     for i in 0..<4 {
-        for k in 0..<4 {
-            for j in 0..<4 {
-                c[k][i] += a[j][i] * b[k][j];
-            }
+        for j in 0..<4 {
+            inline for k in 0..<4 do c[i][j] += a[i][k] * b[k][j];
         }
     }
     return c;
