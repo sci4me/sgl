@@ -136,13 +136,13 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         z += z_step;
     }
 
-    draw_scan_line :: inline proc(r: ^Renderer, left, right: Edge, y: int) {
+    draw_scan_line :: inline proc(r: ^Renderer, left, right: ^Edge, y: int) {
         x_min := int(math.ceil(left.x));
         x_max := int(math.ceil(right.x));
         x_dist := right.x - left.x;
         x_prestep := f64(x_min) - left.x;
 
-        color_x_step := mul_color(sub_color(right.color, left.color), 1 / x_dist);
+        color_x_step := div_color(sub_color(right.color, left.color), x_dist);
         one_over_w_x_step := (right.one_over_w - left.one_over_w) / x_dist;
         z_x_step := (right.z - left.z) / x_dist;
 
@@ -165,7 +165,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         }
     }
 
-    scan_edges :: inline proc(r: ^Renderer, a, b: Edge, handedness: bool) {
+    scan_edges :: inline proc(r: ^Renderer, a, b: ^Edge, handedness: bool, $bad_edge: bool) {
         left := a;
         right := b;
 
@@ -179,8 +179,8 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
             draw_pixel(r.fb, int(left.x), y, Color{1, 1, 1, 1});
             draw_pixel(r.fb, int(right.x), y, Color{1, 1, 1, 1});
             
-            step(&left);
-            step(&right);
+            step(left);
+            step(right);
         }
     }
 
@@ -207,6 +207,6 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     min_to_mid := make_edge(gradients, min.pos, mid.pos, 0);
     mid_to_max := make_edge(gradients, mid.pos, max.pos, 1);
 
-    scan_edges(r, min_to_max, min_to_mid, handedness);
-    scan_edges(r, min_to_max, mid_to_max, handedness);
+    scan_edges(r, &min_to_max, &min_to_mid, handedness, false);
+    scan_edges(r, &min_to_max, &mid_to_max, handedness, true);
 }

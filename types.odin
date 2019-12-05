@@ -19,14 +19,6 @@ color_to_pixel :: inline proc(color: Color) -> (r: Pixel) {
     return;
 }
 
-mul_color :: proc(c: Color, s: f64) -> (r: Color) {
-    r.r = c.r * s;
-    r.g = c.g * s;
-    r.b = c.b * s;
-    r.a = c.a * s;
-    return;
-}
-
 add_color :: proc(a, b: Color) -> (r: Color) {
     r.r = a.r + b.r;
     r.g = a.g + b.g;
@@ -40,6 +32,22 @@ sub_color :: proc(a, b: Color) -> (r: Color) {
     r.g = a.g - b.g;
     r.b = a.b - b.b;
     r.a = a.a - b.a;
+    return;
+}
+
+mul_color :: proc(c: Color, s: f64) -> (r: Color) {
+    r.r = c.r * s;
+    r.g = c.g * s;
+    r.b = c.b * s;
+    r.a = c.a * s;
+    return;
+}
+
+div_color :: proc(c: Color, s: f64) -> (r: Color) {
+    r.r = c.r / s;
+    r.g = c.g / s;
+    r.b = c.b / s;
+    r.a = c.a / s;
     return;
 }
 
