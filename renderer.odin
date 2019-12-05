@@ -104,17 +104,17 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     make_edge :: inline proc(gs: Gradients, start, end: V4, start_index: int) -> Edge {
         using edge: Edge;
 
-        x_start := int(math.ceil(start.x));
         y_start = int(math.ceil(start.y));
         y_end =   int(math.ceil(end.y));
 
         x_dist := end.x - start.x;
         y_dist := end.y - start.y;
-        x_prestep := f64(x_start) - start.x;
         y_prestep := f64(y_start) - start.y;
 
         x_step = x_dist / y_dist;
         x = start.x + y_prestep * x_step;
+
+        x_prestep := x - start.x;
 
         color = add_color(gs.color[start_index], add_color(mul_color(gs.color_x_step, x_prestep), mul_color(gs.color_y_step, y_prestep)));
         color_step = add_color(mul_color(gs.color_x_step, x_step), gs.color_y_step);
