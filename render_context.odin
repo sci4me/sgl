@@ -3,17 +3,33 @@ package sgl
 import "core:fmt"
 import "core:math"
 
+Vertex :: struct {
+    pos: V4,
+    color: Color
+}
+
+Fragment :: struct {
+    color: Color
+}
+
+Vertex_Shader :: #type proc(vertex: Vertex) -> Vertex;
+Fragment_Shader :: #type proc(uv: V2, color: Color) -> Fragment;
+
 Render_Context :: struct {
     fb: ^Bitmap,
     depth_buffer: []f64,
-    screen_space_transform: M4
+    screen_space_transform: M4,
+    vertex_shader: Vertex_Shader,
+    fragment_shader: Fragment_Shader
 }
 
-make_render_context :: proc(width, height: int) -> ^Render_Context {
+make_render_context :: proc(width, height: int, _vertex_shader: Vertex_Shader, _fragment_shader: Fragment_Shader) -> ^Render_Context {
     using r := new(Render_Context);
     fb = make_bitmap(width, height);
     depth_buffer = make([]f64, width * height);
     screen_space_transform = make_screen_space_transform(f64(width), f64(height));
+    vertex_shader = _vertex_shader;
+    fragment_shader = _fragment_shader;
     return r;
 }
 
@@ -157,7 +173,11 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
                 rc.depth_buffer[i] = z;
 
                 w := 1 / one_over_w;
-                draw_pixel(rc.fb, x, y, mul_color(color, w));
+                real_color := mul_color(color, w);
+
+                f := rc.fragment_shader(V2{f64(x) / f64(rc.fb.width), f64(y) / f64(rc.fb.height)}, real_color);
+
+                draw_pixel(rc.fb, x, y, f.color);
             }
 
             color = add_color(color, color_x_step);
@@ -197,9 +217,13 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
         };
     }
 
-    min := transform_and_perspective_divide_vertex(a, rc.screen_space_transform);
-    mid := transform_and_perspective_divide_vertex(b, rc.screen_space_transform);
-    max := transform_and_perspective_divide_vertex(c, rc.screen_space_transform);
+    as := rc.vertex_shader(a);
+    bs := rc.vertex_shader(b);
+    cs := rc.vertex_shader(c);
+
+    min := transform_and_perspective_divide_vertex(as, rc.screen_space_transform);
+    mid := transform_and_perspective_divide_vertex(bs, rc.screen_space_transform);
+    max := transform_and_perspective_divide_vertex(cs, rc.screen_space_transform);
 
     if max.pos.y < mid.pos.y do swap(&max, &mid);
     if mid.pos.y < min.pos.y do swap(&mid, &min);

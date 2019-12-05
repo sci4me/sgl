@@ -21,7 +21,7 @@ init :: proc() {
     data, ok := os.read_entire_file("models/icosphere.obj");
     if !ok do panic("Could not read model file");
     defer delete(data);
-    
+
     model := sgl.load_obj_model(string(data));
     defer sgl.delete_obj_model(model);
 
@@ -29,7 +29,7 @@ init :: proc() {
     model_ibo = sgl.make_buffer(size_of(int) * len(model.indices));
 
     for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vbo, i, sgl.Vertex{model.positions[i], sgl.Color{1, 1, 1, 1}});
-    for i in 0..<len(model.indices) do  sgl.write_buffer_element(model_ibo, i, model.indices[i].vertex_index);
+    for i in 0..<len(model.indices) do   sgl.write_buffer_element(model_ibo, i, model.indices[i].vertex_index);
 
     plane_vbo = sgl.make_buffer(size_of(sgl.Vertex) * 4);
     plane_ibo = sgl.make_buffer(size_of(int) * 6);
@@ -50,7 +50,7 @@ tick :: proc(dt: f64) {
     t += 1 * dt;
 }
 
-draw_indexed :: proc(rc: ^sgl.Render_Context, vbo, ibo: ^sgl.Buffer, m: sgl.M4, $hack: bool) {
+draw_indexed :: proc(rc: ^sgl.Render_Context, vbo, ibo: ^sgl.Buffer, m: sgl.M4) {
     i := 0;
     for i < len(ibo.data) / size_of(int) {
         i0 := sgl.read_buffer_element(ibo, i, int);
@@ -64,12 +64,6 @@ draw_indexed :: proc(rc: ^sgl.Render_Context, vbo, ibo: ^sgl.Buffer, m: sgl.M4, 
         a.pos = sgl.mul(a.pos, m);
         b.pos = sgl.mul(b.pos, m);
         c.pos = sgl.mul(c.pos, m);
-
-        when hack {
-            a.color = sgl.Color{1, 0, 0, 1};
-            b.color = sgl.Color{0, 1, 0, 1};
-            c.color = sgl.Color{0, 0, 1, 1};
-        }
 
         sgl.fill_triangle(rc, a, b, c);
 
@@ -86,7 +80,7 @@ render :: proc(rc: ^sgl.Render_Context) {
 
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
-        draw_indexed(rc, model_vbo, model_ibo, m, true);
+        draw_indexed(rc, model_vbo, model_ibo, m);
     }
 
     {
@@ -94,6 +88,14 @@ render :: proc(rc: ^sgl.Render_Context) {
 
         m := sgl.mul(projection, translation);
 
-        draw_indexed(rc, plane_vbo, plane_ibo, m, false);
+        draw_indexed(rc, plane_vbo, plane_ibo, m);
     }
+}
+
+vertex_shader_impl :: proc(v: sgl.Vertex) -> sgl.Vertex {
+    return v;
+}
+
+fragment_shader_impl :: proc(uv: sgl.V2, color: sgl.Color) -> sgl.Fragment {
+    return sgl.Fragment{color};
 }

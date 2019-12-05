@@ -15,14 +15,17 @@ delete_buffer :: proc(using b: ^Buffer) {
     free(b);
 }
 
-read_buffer_element :: proc(using b: ^Buffer, element: int, $T: typeid) -> T {
+buffer_element_ptr :: proc(using b: ^Buffer, element: int, $T: typeid) -> ^T {
     offset := size_of(T) * element;
-    ptr := transmute(^T) rawptr(uintptr(&data[0]) + uintptr(offset));
+    return transmute(^T) rawptr(uintptr(&data[0]) + uintptr(offset));
+}
+
+read_buffer_element :: proc(using b: ^Buffer, element: int, $T: typeid) -> T {
+    ptr := buffer_element_ptr(b, element, T);
     return ptr^;
 }
 
 write_buffer_element :: proc(using b: ^Buffer, element: int, value: $T) {
-    offset := size_of(T) * element;
-    ptr := transmute(^T) rawptr(uintptr(&data[0]) + uintptr(offset));
+    ptr := buffer_element_ptr(b, element, T);
     ptr^ = value;
 }
