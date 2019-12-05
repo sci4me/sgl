@@ -24,7 +24,7 @@ delete_renderer :: proc(using r: ^Renderer) {
 
 clear :: proc(using r: ^Renderer, color: Color) {
     clear_bitmap(r.fb, color);
-    for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
+    for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MIN;
 }
 
 fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
@@ -53,49 +53,51 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         z_y_step: f64
     };
 
-    calc_x_step :: inline proc(values: [3]f64, min, mid, max: V4, one_over_dx: f64) -> f64 {
+    calc_x_step :: inline proc(values: [3]f64, vertices: [3]V4, one_over_dx: f64) -> f64 {
+        min := vertices[0];
+        mid := vertices[1];
+        max := vertices[2];
         return (((values[1] - values[2]) * (min.y - max.y)) - ((values[0] - values[2]) * (mid.y - max.y))) * one_over_dx;
     }
 
-    calc_y_step :: inline proc(values: [3]f64, min, mid, max: V4, one_over_dy: f64) -> f64 {
+    calc_y_step :: inline proc(values: [3]f64, vertices: [3]V4, one_over_dy: f64) -> f64 {
+        min := vertices[0];
+        mid := vertices[1];
+        max := vertices[2];
         return (((values[1] - values[2]) * (min.x - max.x)) - ((values[0] - values[2]) * (mid.x - max.x))) * one_over_dy;
     } 
 
-    calc_color_step :: inline proc(values: [3]Color, min, mid, max: V4, s: f64, fn: proc(values: [3]f64, min, mid, max: V4, s: f64) -> f64) -> Color {
+    calc_color_step :: inline proc(values: [3]Color, vertices: [3]V4, s: f64, fn: proc(values: [3]f64, vertices: [3]V4, s: f64) -> f64) -> Color {
         return Color{
-            fn({values[0].r, values[1].r, values[2].r}, min, mid, max, s),
-            fn({values[0].g, values[1].g, values[2].g}, min, mid, max, s),
-            fn({values[0].b, values[1].b, values[2].b}, min, mid, max, s),
-            fn({values[0].a, values[1].a, values[2].a}, min, mid, max, s)
+            fn({values[0].r, values[1].r, values[2].r}, vertices, s),
+            fn({values[0].g, values[1].g, values[2].g}, vertices, s),
+            fn({values[0].b, values[1].b, values[2].b}, vertices, s),
+            fn({values[0].a, values[1].a, values[2].a}, vertices, s)
         };
     }
 
     make_gradients :: inline proc(min, mid, max: Vertex) -> Gradients {
         using g: Gradients;
 
+        vertices := [3]Vertex{min, mid, max};
+        positions := [3]V4{min.pos, mid.pos, max.pos};
+        colors := [3]Color{min.color, mid.color, max.color};
+        
+        inline for i in 0..<3 do one_over_w[i] = 1 / positions[i].w;
+        inline for i in 0..<3 do color[i] = mul_color(colors[i], one_over_w[i]);
+        inline for i in 0..<3 do z[i] = positions[i].z;
+
         one_over_dx := 1 / ((mid.pos.x - max.pos.x) * (min.pos.y - max.pos.y) - (min.pos.x - max.pos.x) * (mid.pos.y - max.pos.y));
         one_over_dy := -one_over_dx;
 
-        one_over_w[0] = 1 / min.pos.w;
-        one_over_w[1] = 1 / mid.pos.w;
-        one_over_w[2] = 1 / max.pos.w;
+        color_x_step = calc_color_step(color, positions, one_over_dx, calc_x_step);
+        color_y_step = calc_color_step(color, positions, one_over_dy, calc_y_step);
 
-        color[0] = mul_color(min.color, one_over_w[0]);
-        color[1] = mul_color(mid.color, one_over_w[1]);
-        color[2] = mul_color(max.color, one_over_w[2]);
+        one_over_w_x_step = calc_x_step(one_over_w, positions, one_over_dx);
+        one_over_w_y_step = calc_y_step(one_over_w, positions, one_over_dy);
 
-        z[0] = min.pos.z;
-        z[1] = mid.pos.z;
-        z[2] = max.pos.z;
-
-        color_x_step = calc_color_step(color, min.pos, mid.pos, max.pos, one_over_dx, calc_x_step);
-        color_y_step = calc_color_step(color, min.pos, mid.pos, max.pos, one_over_dy, calc_y_step);
-
-        one_over_w_x_step = calc_x_step(one_over_w, min.pos, mid.pos, max.pos, one_over_dx);
-        one_over_w_y_step = calc_y_step(one_over_w, min.pos, mid.pos, max.pos, one_over_dy);
-
-        z_x_step = calc_x_step(z, min.pos, mid.pos, max.pos, one_over_dx);
-        z_y_step = calc_y_step(z, min.pos, mid.pos, max.pos, one_over_dy);
+        z_x_step = calc_x_step(z, positions, one_over_dx);
+        z_y_step = calc_y_step(z, positions, one_over_dy);
 
         return g;
     }
@@ -103,12 +105,13 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     make_edge :: inline proc(gs: Gradients, start, end: V4, start_index: int) -> Edge {
         using edge: Edge;
 
+        x_start := int(math.ceil(start.x));
         y_start = int(math.ceil(start.y));
         y_end =   int(math.ceil(end.y));
 
         x_dist := end.x - start.x;
         y_dist := end.y - start.y;
-        x_prestep := f64(int(start.x)) - start.x;
+        x_prestep := f64(x_start) - start.x;
         y_prestep := f64(y_start) - start.y;
 
         x_step = x_dist / y_dist;
@@ -149,7 +152,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
 
         for x in x_min..<x_max {
             i := x + y * r.fb.width;
-            if z < r.depth_buffer[i] {
+            if z > r.depth_buffer[i] {
                 r.depth_buffer[i] = z;
 
                 w := 1 / one_over_w;
@@ -172,6 +175,10 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         y_end := b.y_end;
         for y in y_start..<y_end {
             draw_scan_line(r, left, right, y);
+            
+            draw_pixel(r.fb, int(left.x), y, Color{1, 1, 1, 1});
+            draw_pixel(r.fb, int(right.x), y, Color{1, 1, 1, 1});
+            
             step(&left);
             step(&right);
         }

@@ -19,6 +19,7 @@ render :: proc(r: ^sgl.Renderer) {
     sgl.clear(r, sgl.Color{0, 0, 0, 1});
 
     {
+        /*
         a := sgl.V4{-1, -1, 0, 1};
         b := sgl.V4{-1, 1, 0, 1};
         c := sgl.V4{1, 1, 0, 1};
@@ -43,6 +44,7 @@ render :: proc(r: ^sgl.Renderer) {
             sgl.Vertex{sgl.mul(d, m), color},
             sgl.Vertex{sgl.mul(a, m), color}
         );
+        */
     }
 
     {
@@ -51,7 +53,7 @@ render :: proc(r: ^sgl.Renderer) {
         c := sgl.V4{1, -1, 0, 1};
 
         translation := sgl.make_translation(sgl.V3{0, 0, 2});
-        rotation := sgl.make_rotation(sgl.V3{0, 0, 1}, t);
+        rotation := sgl.make_rotation(sgl.V3{0, 0, 1}, 30);
         
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
