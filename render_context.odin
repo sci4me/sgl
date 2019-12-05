@@ -30,7 +30,7 @@ make_render_context :: proc(width, height: int, _vertex_shader: Vertex_Shader, _
 }
 
 delete_render_context :: proc(using r: ^Render_Context) {
-    delete_bitmap(target);
+    destroy(target);
     delete(depth_buffer);
 }
 

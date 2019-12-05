@@ -28,7 +28,7 @@ init :: proc() {
     defer delete(data);
 
     model := sgl.load_obj_model(string(data));
-    defer sgl.delete_obj_model(model);
+    defer sgl.destroy(model);
 
     model_vbo = sgl.make_buffer(size_of(sgl.Vertex) * len(model.positions));
     model_ibo = sgl.make_buffer(size_of(int) * len(model.indices));
@@ -52,13 +52,13 @@ init :: proc() {
 }
 
 shutdown :: proc() {
-    sgl.delete_render_context(rc);
+    sgl.destroy(rc);
 
-    sgl.delete_buffer(model_vbo);
-    sgl.delete_buffer(model_ibo);
+    sgl.destroy(model_vbo);
+    sgl.destroy(model_ibo);
 
-    sgl.delete_buffer(plane_vbo);
-    sgl.delete_buffer(plane_ibo);
+    sgl.destroy(plane_vbo);
+    sgl.destroy(plane_ibo);
 }
 
 tick :: proc(dt: f64) {

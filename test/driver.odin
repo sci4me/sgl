@@ -99,9 +99,6 @@ main :: proc() {
 
     init();
 
-    depth_buffer := make([]f64, WIDTH * HEIGHT);
-    defer delete(depth_buffer);
-
     timer := glfw.GetTime();
     last := timer;
 

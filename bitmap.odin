@@ -16,7 +16,7 @@ make_bitmap :: proc(_width, _height: int) -> ^Bitmap {
 }
 
 delete_bitmap :: proc(using b: ^Bitmap) {
-    delete_buffer(buffer);
+    destroy(buffer);
     free(b);
 }
 
