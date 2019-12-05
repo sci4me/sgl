@@ -1,6 +1,5 @@
 package sgl
 
-import "core:fmt"
 import "core:math"
 
 Renderer :: struct {
@@ -24,7 +23,7 @@ delete_renderer :: proc(using r: ^Renderer) {
 
 clear :: proc(using r: ^Renderer, color: Color) {
     clear_bitmap(r.fb, color);
-    for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MIN;
+    for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
 fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
@@ -152,7 +151,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
 
         for x in x_min..<x_max {
             i := x + y * r.fb.width;
-            if z > r.depth_buffer[i] {
+            if z < r.depth_buffer[i] {
                 r.depth_buffer[i] = z;
 
                 w := 1 / one_over_w;
@@ -165,7 +164,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         }
     }
 
-    scan_edges :: inline proc(r: ^Renderer, a, b: ^Edge, handedness: bool, $bad_edge: bool) {
+    scan_edges :: inline proc(r: ^Renderer, a, b: ^Edge, handedness: bool) {
         left := a;
         right := b;
 
@@ -175,10 +174,6 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         y_end := b.y_end;
         for y in y_start..<y_end {
             draw_scan_line(r, left, right, y);
-            
-            draw_pixel(r.fb, int(left.x), y, Color{1, 1, 1, 1});
-            draw_pixel(r.fb, int(right.x), y, Color{1, 1, 1, 1});
-            
             step(left);
             step(right);
         }
@@ -207,6 +202,6 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     min_to_mid := make_edge(gradients, min.pos, mid.pos, 0);
     mid_to_max := make_edge(gradients, mid.pos, max.pos, 1);
 
-    scan_edges(r, &min_to_max, &min_to_mid, handedness, false);
-    scan_edges(r, &min_to_max, &mid_to_max, handedness, true);
+    scan_edges(r, &min_to_max, &min_to_mid, handedness);
+    scan_edges(r, &min_to_max, &mid_to_max, handedness);
 }
