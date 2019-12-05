@@ -12,7 +12,7 @@ init :: proc() {
 }
 
 tick :: proc(dt: f64) {
-    t += 1 * dt;
+    t += 1.5 * dt;
 }
 
 render :: proc(r: ^sgl.Renderer) {
@@ -50,8 +50,8 @@ render :: proc(r: ^sgl.Renderer) {
         b := sgl.V4{0, 1, 0, 1};
         c := sgl.V4{1, -1, 0, 1};
 
-        translation := sgl.make_translation(sgl.V3{0, 0, 3 + math.sin(t)});
-        rotation := sgl.make_rotation(sgl.V3{0, 0, 1}, t);
+        translation := sgl.make_translation(sgl.V3{0, 0, 3});
+        rotation := sgl.make_rotation(sgl.V3{1, 1, 1}, t);
         
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
