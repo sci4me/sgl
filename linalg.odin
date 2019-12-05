@@ -9,7 +9,7 @@ V4 :: distinct [4]f64;
 
 M4 :: distinct [4][4]f64;
 
-triangle_area_times_two :: proc(a, b, c: V4) -> f64 {
+triangle_area_times_two :: proc(a, b, c: V2) -> f64 {
     x1 := b.x - a.x;
     y1 := b.y - a.y;
 

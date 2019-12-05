@@ -1,5 +1,6 @@
 package sgl
 
+import "core:fmt"
 import "core:math"
 
 Renderer :: struct {
@@ -101,7 +102,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         return g;
     }
 
-    make_edge :: inline proc(gs: Gradients, start, end: V4, start_index: int) -> Edge {
+    make_edge :: inline proc(gs: Gradients, start, end: V2, start_index: int) -> Edge {
         using edge: Edge;
 
         y_start = int(math.ceil(start.y));
@@ -189,7 +190,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
                 v.w
             };
         }
-        
+
         return Vertex{
             perspective_divide(mul(v.pos, m)),
             v.color
@@ -204,13 +205,13 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     if mid.pos.y < min.pos.y do swap(&mid, &min);
     if max.pos.y < mid.pos.y do swap(&max, &mid);
 
-    handedness := triangle_area_times_two(min.pos, max.pos, mid.pos) > 0;
+    handedness := triangle_area_times_two(swizzle(min.pos, 0, 1), swizzle(max.pos, 0, 1), swizzle(mid.pos, 0, 1)) > 0;
     
     gradients := make_gradients(min, mid, max);
 
-    min_to_max := make_edge(gradients, min.pos, max.pos, 0);
-    min_to_mid := make_edge(gradients, min.pos, mid.pos, 0);
-    mid_to_max := make_edge(gradients, mid.pos, max.pos, 1);
+    min_to_max := make_edge(gradients, swizzle(min.pos, 0, 1), swizzle(max.pos, 0, 1), 0);
+    min_to_mid := make_edge(gradients, swizzle(min.pos, 0, 1), swizzle(mid.pos, 0, 1), 0);
+    mid_to_max := make_edge(gradients, swizzle(mid.pos, 0, 1), swizzle(max.pos, 0, 1), 1);
 
     scan_edges(r, &min_to_max, &min_to_mid, handedness);
     scan_edges(r, &min_to_max, &mid_to_max, handedness);
