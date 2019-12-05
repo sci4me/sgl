@@ -65,27 +65,6 @@ tick :: proc(dt: f64) {
     t += 1 * dt;
 }
 
-draw_indexed :: proc(rc: ^sgl.Render_Context, vbo, ibo: ^sgl.Buffer, m: sgl.M4) {
-    i := 0;
-    for i < len(ibo.data) / size_of(int) {
-        i0 := sgl.read_buffer_element(ibo, i, int);
-        i1 := sgl.read_buffer_element(ibo, i+1, int);
-        i2 := sgl.read_buffer_element(ibo, i+2, int);
-
-        a := sgl.read_buffer_element(vbo, i0, sgl.Vertex);
-        b := sgl.read_buffer_element(vbo, i1, sgl.Vertex);
-        c := sgl.read_buffer_element(vbo, i2, sgl.Vertex);
-
-        a.pos = sgl.mul(a.pos, m);
-        b.pos = sgl.mul(b.pos, m);
-        c.pos = sgl.mul(c.pos, m);
-
-        sgl.fill_triangle(rc, a, b, c);
-
-        i += 3;
-    }
-}
-
 render :: proc(fb: ^sgl.Bitmap) {
     sgl.clear(rc, sgl.Color{0, 0, 0, 1});
 
@@ -95,7 +74,7 @@ render :: proc(fb: ^sgl.Bitmap) {
 
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
-        draw_indexed(rc, model_vbo, model_ibo, m);
+        sgl.draw_indexed(rc, model_vbo, model_ibo, m);
     }
 
     {
@@ -103,7 +82,7 @@ render :: proc(fb: ^sgl.Bitmap) {
 
         m := sgl.mul(projection, translation);
 
-        draw_indexed(rc, plane_vbo, plane_ibo, m);
+        sgl.draw_indexed(rc, plane_vbo, plane_ibo, m);
     }
 
     mem.copy(&fb.buffer.data[0], &rc.target.buffer.data[0], len(fb.buffer.data));

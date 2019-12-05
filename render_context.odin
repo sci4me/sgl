@@ -39,6 +39,28 @@ clear :: proc(using r: ^Render_Context, color: Color) {
     for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
+draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4) {
+    i := 0;
+    for i < len(ibo.data) / size_of(int) {
+        i0 := read_buffer_element(ibo, i, int);
+        i1 := read_buffer_element(ibo, i+1, int);
+        i2 := read_buffer_element(ibo, i+2, int);
+
+        a := read_buffer_element(vbo, i0, Vertex);
+        b := read_buffer_element(vbo, i1, Vertex);
+        c := read_buffer_element(vbo, i2, Vertex);
+
+        a.pos = mul(a.pos, m);
+        b.pos = mul(b.pos, m);
+        c.pos = mul(c.pos, m);
+
+        fill_triangle(rc, a, b, c);
+
+        i += 3;
+    }
+}
+
+@private
 fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
     Edge :: struct {
         x: f64,
