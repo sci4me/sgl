@@ -16,7 +16,7 @@ tick :: proc(dt: f64) {
     t += 1.5 * dt;
 }
 
-render :: proc(r: ^sgl.Renderer) {
+render :: proc(r: ^sgl.Render_Context) {
     sgl.clear(r, sgl.Color{0, 0, 0, 1});
 
     {

@@ -3,31 +3,31 @@ package sgl
 import "core:fmt"
 import "core:math"
 
-Renderer :: struct {
+Render_Context :: struct {
     fb: ^Bitmap,
     depth_buffer: []f64,
     screen_space_transform: M4
 }
 
-make_renderer :: proc(width, height: int) -> ^Renderer {
-    using r := new(Renderer);
+make_render_context :: proc(width, height: int) -> ^Render_Context {
+    using r := new(Render_Context);
     fb = make_bitmap(width, height);
     depth_buffer = make([]f64, width * height);
     screen_space_transform = make_screen_space_transform(f64(width), f64(height));
     return r;
 }
 
-delete_renderer :: proc(using r: ^Renderer) {
+delete_render_context :: proc(using r: ^Render_Context) {
     delete_bitmap(fb);
     delete(depth_buffer);
 }
 
-clear :: proc(using r: ^Renderer, color: Color) {
+clear :: proc(using r: ^Render_Context, color: Color) {
     clear_bitmap(r.fb, color);
     for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
-fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
+fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
     Edge :: struct {
         x: f64,
         x_step: f64,
@@ -136,7 +136,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         z += z_step;
     }
 
-    draw_scan_line :: inline proc(r: ^Renderer, left, right: ^Edge, y: int) {
+    draw_scan_line :: inline proc(r: ^Render_Context, left, right: ^Edge, y: int) {
         x_min := int(math.ceil(left.x));
         x_max := int(math.ceil(right.x));
         x_dist := right.x - left.x;
@@ -166,7 +166,7 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
         }
     }
 
-    scan_edges :: inline proc(r: ^Renderer, a, b: ^Edge, handedness: bool) {
+    scan_edges :: inline proc(r: ^Render_Context, a, b: ^Edge, handedness: bool) {
         left := a;
         right := b;
 
