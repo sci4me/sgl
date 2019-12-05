@@ -3,54 +3,6 @@ package sgl
 import "core:math"
 import "core:math/linalg"
 
-Color :: struct {
-    r, g, b, a: f64
-}
-
-Pixel :: struct {
-    r, g, b, a: u8
-}
-
-color_to_pixel :: inline proc(color: Color) -> (r: Pixel) {
-    r.r = u8(color.r * 255 + 0.5);
-    r.g = u8(color.g * 255 + 0.5);
-    r.b = u8(color.b * 255 + 0.5);
-    r.a = u8(color.a * 255 + 0.5);
-    return;
-}
-
-add_color :: proc(a, b: Color) -> (r: Color) {
-    r.r = a.r + b.r;
-    r.g = a.g + b.g;
-    r.b = a.b + b.b;
-    r.a = a.a + b.a;
-    return;
-}
-
-sub_color :: proc(a, b: Color) -> (r: Color) {
-    r.r = a.r - b.r;
-    r.g = a.g - b.g;
-    r.b = a.b - b.b;
-    r.a = a.a - b.a;
-    return;
-}
-
-mul_color :: proc(c: Color, s: f64) -> (r: Color) {
-    r.r = c.r * s;
-    r.g = c.g * s;
-    r.b = c.b * s;
-    r.a = c.a * s;
-    return;
-}
-
-div_color :: proc(c: Color, s: f64) -> (r: Color) {
-    r.r = c.r / s;
-    r.g = c.g / s;
-    r.b = c.b / s;
-    r.a = c.a / s;
-    return;
-}
-
 V2 :: distinct [2]f64;
 V3 :: distinct [3]f64;
 V4 :: distinct [4]f64;
@@ -65,11 +17,6 @@ triangle_area_times_two :: proc(a, b, c: V4) -> f64 {
     y2 := c.y - a.y;
 
     return (x1 * y2 - x2 * y1);
-}
-
-Vertex :: struct {
-    pos: V4,
-    color: Color
 }
 
 make_identity :: inline proc() -> M4 {
@@ -160,12 +107,3 @@ mul_matrix_vector :: inline proc(v: V4, m: M4) -> V4 {
 }
 
 mul :: proc{mul_matrix, mul_matrix_vector};
-
-perspective_divide :: inline proc(v: V4) -> V4 {
-    return V4{
-        v.x / v.w,
-        v.y / v.w,
-        v.z / v.w,
-        v.w
-    };
-}

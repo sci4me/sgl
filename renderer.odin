@@ -181,6 +181,15 @@ fill_triangle :: proc(r: ^Renderer, a, b, c: Vertex) {
     }
 
     transform_and_perspective_divide_vertex :: inline proc(v: Vertex, m: M4) -> Vertex {
+        perspective_divide :: inline proc(v: V4) -> V4 {
+            return V4{
+                v.x / v.w,
+                v.y / v.w,
+                v.z / v.w,
+                v.w
+            };
+        }
+        
         return Vertex{
             perspective_divide(mul(v.pos, m)),
             v.color
