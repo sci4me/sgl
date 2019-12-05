@@ -8,15 +8,11 @@ Vertex :: struct {
     color: Color
 }
 
-Fragment :: struct {
-    color: Color
-}
-
 Vertex_Shader :: #type proc(vertex: Vertex) -> Vertex;
-Fragment_Shader :: #type proc(uv: V2, color: Color) -> Fragment;
+Fragment_Shader :: #type proc(uv: V2, color: Color) -> Color;
 
 Render_Context :: struct {
-    fb: ^Bitmap,
+    target: ^Bitmap,
     depth_buffer: []f64,
     screen_space_transform: M4,
     vertex_shader: Vertex_Shader,
@@ -25,7 +21,7 @@ Render_Context :: struct {
 
 make_render_context :: proc(width, height: int, _vertex_shader: Vertex_Shader, _fragment_shader: Fragment_Shader) -> ^Render_Context {
     using r := new(Render_Context);
-    fb = make_bitmap(width, height);
+    target = make_bitmap(width, height);
     depth_buffer = make([]f64, width * height);
     screen_space_transform = make_screen_space_transform(f64(width), f64(height));
     vertex_shader = _vertex_shader;
@@ -34,12 +30,12 @@ make_render_context :: proc(width, height: int, _vertex_shader: Vertex_Shader, _
 }
 
 delete_render_context :: proc(using r: ^Render_Context) {
-    delete_bitmap(fb);
+    delete_bitmap(target);
     delete(depth_buffer);
 }
 
 clear :: proc(using r: ^Render_Context, color: Color) {
-    clear_bitmap(r.fb, color);
+    clear_bitmap(target, color);
     for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
@@ -167,7 +163,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
         z := left.z + z_x_step * x_prestep;
 
         for x in x_min..<x_max {
-            i := x + y * rc.fb.width;
+            i := x + y * rc.target.width;
 
             if z < rc.depth_buffer[i] {
                 rc.depth_buffer[i] = z;
@@ -175,9 +171,9 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
                 w := 1 / one_over_w;
                 real_color := mul_color(color, w);
 
-                f := rc.fragment_shader(V2{f64(x) / f64(rc.fb.width), f64(y) / f64(rc.fb.height)}, real_color);
+                f := rc.fragment_shader(V2{f64(x) / f64(rc.target.width), f64(y) / f64(rc.target.height)}, real_color);
 
-                draw_pixel(rc.fb, x, y, f.color);
+                draw_pixel(rc.target, x, y, f);
             }
 
             color = add_color(color, color_x_step);

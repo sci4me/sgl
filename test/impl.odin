@@ -3,8 +3,11 @@ package main
 import "core:fmt"
 import "core:os"
 import "core:math"
+import "core:mem"
 
 import "shared:sgl"
+
+rc: ^sgl.Render_Context;
 
 t := 0.0;
 projection: sgl.M4;
@@ -16,6 +19,8 @@ plane_vbo: ^sgl.Buffer;
 plane_ibo: ^sgl.Buffer;
 
 init :: proc() {
+    rc = sgl.make_render_context(WIDTH, HEIGHT, vertex_shader_impl, fragment_shader_impl);
+
     projection = sgl.make_perspective(70, f64(WIDTH)/f64(HEIGHT), 0.1, 1000);
 
     data, ok := os.read_entire_file("models/icosphere.obj");
@@ -46,6 +51,16 @@ init :: proc() {
     sgl.write_buffer_element(plane_ibo, 5, 3);
 }
 
+shutdown :: proc() {
+    sgl.delete_render_context(rc);
+
+    sgl.delete_buffer(model_vbo);
+    sgl.delete_buffer(model_ibo);
+
+    sgl.delete_buffer(plane_vbo);
+    sgl.delete_buffer(plane_ibo);
+}
+
 tick :: proc(dt: f64) {
     t += 1 * dt;
 }
@@ -71,7 +86,7 @@ draw_indexed :: proc(rc: ^sgl.Render_Context, vbo, ibo: ^sgl.Buffer, m: sgl.M4) 
     }
 }
 
-render :: proc(rc: ^sgl.Render_Context) {
+render :: proc(fb: ^sgl.Bitmap) {
     sgl.clear(rc, sgl.Color{0, 0, 0, 1});
 
     {
@@ -90,12 +105,14 @@ render :: proc(rc: ^sgl.Render_Context) {
 
         draw_indexed(rc, plane_vbo, plane_ibo, m);
     }
+
+    mem.copy(&fb.buffer.data[0], &rc.target.buffer.data[0], len(fb.buffer.data));
 }
 
 vertex_shader_impl :: proc(v: sgl.Vertex) -> sgl.Vertex {
     return v;
 }
 
-fragment_shader_impl :: proc(uv: sgl.V2, color: sgl.Color) -> sgl.Fragment {
-    return sgl.Fragment{color};
+fragment_shader_impl :: proc(frag_uv: sgl.V2, color: sgl.Color) -> sgl.Color {
+    return color;
 }

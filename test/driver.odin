@@ -122,23 +122,16 @@ main :: proc() {
 
             ptr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY);
             if ptr != nil {
-                pixel_data := mem.slice_ptr(cast(^u8)ptr, WIDTH * HEIGHT / 4);
+                pixel_data := mem.slice_ptr(cast(^u8)ptr, WIDTH * HEIGHT * 4);
                 buffer := sgl.Buffer{pixel_data};
                 fb := sgl.Bitmap{&buffer, WIDTH, HEIGHT};
-                render_context := sgl.Render_Context{
-                    &fb,
-                    depth_buffer,
-                    sgl.make_screen_space_transform(f64(WIDTH), f64(HEIGHT)),
-                    vertex_shader_impl,
-                    fragment_shader_impl
-                };
         
                 now := glfw.GetTime();
                 diff := now - last;
                 last = now;
 
                 tick(diff);
-                render(&render_context);
+                render(&fb);
         
                 frames += 1;
 
