@@ -9,39 +9,41 @@ import "shared:sgl"
 t := 0.0;
 projection: sgl.M4;
 
-model_vertex_buffer: ^sgl.Buffer;
-model_index_buffer: ^sgl.Buffer;
+model_vbo: ^sgl.Buffer;
+model_ibo: ^sgl.Buffer;
 
-plane_vertex_buffer: ^sgl.Buffer;
-plane_index_buffer: ^sgl.Buffer;
+plane_vbo: ^sgl.Buffer;
+plane_ibo: ^sgl.Buffer;
 
 init :: proc() {
     projection = sgl.make_perspective(70, f64(WIDTH)/f64(HEIGHT), 0.1, 1000);
 
     data, ok := os.read_entire_file("models/icosphere.obj");
     if !ok do panic("Could not read model file");
+    defer delete(data);
+    
     model := sgl.load_obj_model(string(data));
     defer sgl.delete_obj_model(model);
 
-    model_vertex_buffer = sgl.make_buffer(size_of(sgl.Vertex) * len(model.positions));
-    model_index_buffer = sgl.make_buffer(size_of(int) * len(model.indices));
+    model_vbo = sgl.make_buffer(size_of(sgl.Vertex) * len(model.positions));
+    model_ibo = sgl.make_buffer(size_of(int) * len(model.indices));
 
-    for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vertex_buffer, i, sgl.Vertex{model.positions[i], sgl.Color{1, 1, 1, 1}});
-    for i in 0..<len(model.indices) do  sgl.write_buffer_element(model_index_buffer, i, model.indices[i].vertex_index);
+    for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vbo, i, sgl.Vertex{model.positions[i], sgl.Color{1, 1, 1, 1}});
+    for i in 0..<len(model.indices) do  sgl.write_buffer_element(model_ibo, i, model.indices[i].vertex_index);
 
-    plane_vertex_buffer = sgl.make_buffer(size_of(sgl.Vertex) * 4);
-    plane_index_buffer = sgl.make_buffer(size_of(int) * 6);
+    plane_vbo = sgl.make_buffer(size_of(sgl.Vertex) * 4);
+    plane_ibo = sgl.make_buffer(size_of(int) * 6);
 
-    sgl.write_buffer_element(plane_vertex_buffer, 0, sgl.Vertex{sgl.V4{-1, -1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vertex_buffer, 1, sgl.Vertex{sgl.V4{-1,  1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vertex_buffer, 2, sgl.Vertex{sgl.V4{ 1, -1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vertex_buffer, 3, sgl.Vertex{sgl.V4{ 1,  1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_index_buffer, 0, 0);
-    sgl.write_buffer_element(plane_index_buffer, 1, 1);
-    sgl.write_buffer_element(plane_index_buffer, 2, 3);
-    sgl.write_buffer_element(plane_index_buffer, 3, 0);
-    sgl.write_buffer_element(plane_index_buffer, 4, 2);
-    sgl.write_buffer_element(plane_index_buffer, 5, 3);
+    sgl.write_buffer_element(plane_vbo, 0, sgl.Vertex{sgl.V4{-1, -1, 0, 1}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 1, sgl.Vertex{sgl.V4{-1,  1, 0, 1}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 2, sgl.Vertex{sgl.V4{ 1, -1, 0, 1}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 3, sgl.Vertex{sgl.V4{ 1,  1, 0, 1}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_ibo, 0, 0);
+    sgl.write_buffer_element(plane_ibo, 1, 1);
+    sgl.write_buffer_element(plane_ibo, 2, 3);
+    sgl.write_buffer_element(plane_ibo, 3, 0);
+    sgl.write_buffer_element(plane_ibo, 4, 2);
+    sgl.write_buffer_element(plane_ibo, 5, 3);
 }
 
 tick :: proc(dt: f64) {
@@ -80,11 +82,11 @@ render :: proc(rc: ^sgl.Render_Context) {
 
     {
         translation := sgl.make_translation(sgl.V3{0, 0, 3 + math.sin(t)});
-        rotation := sgl.make_rotation(sgl.V3{0, 1, 0}, t);
+        rotation := sgl.make_rotation(sgl.V3{0, 0, 1}, t);
 
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
-        draw_indexed(rc, model_vertex_buffer, model_index_buffer, m, true);
+        draw_indexed(rc, model_vbo, model_ibo, m, true);
     }
 
     {
@@ -92,6 +94,6 @@ render :: proc(rc: ^sgl.Render_Context) {
 
         m := sgl.mul(projection, translation);
 
-        draw_indexed(rc, plane_vertex_buffer, plane_index_buffer, m, false);
+        draw_indexed(rc, plane_vbo, plane_ibo, m, false);
     }
 }

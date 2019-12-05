@@ -22,6 +22,7 @@ OBJ_Model :: struct {
 load_obj_model :: proc(s: string) -> ^OBJ_Model {
     parse_obj_index :: proc(s: string) -> (i: OBJ_Index) {
         values := strings.split(s, "/");
+        defer delete(values);
 
         i.vertex_index = strconv.parse_int(values[0]) - 1;
 
@@ -43,8 +44,11 @@ load_obj_model :: proc(s: string) -> ^OBJ_Model {
     indices := make([dynamic]OBJ_Index);
 
     lines := strings.split(s, "\n");
+    defer delete(lines);
+
     for line in lines {
         tokens := strings.split(line, " ");
+        defer delete(tokens);
 
         if len(tokens) == 0 || tokens[0] == "#" do continue;
 
