@@ -27,7 +27,7 @@ clear :: proc(using r: ^Render_Context, color: Color) {
     for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
-fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
+fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
     Edge :: struct {
         x: f64,
         x_step: f64,
@@ -136,7 +136,7 @@ fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
         z += z_step;
     }
 
-    draw_scan_line :: inline proc(r: ^Render_Context, left, right: ^Edge, y: int) {
+    draw_scan_line :: inline proc(rc: ^Render_Context, left, right: ^Edge, y: int) {
         x_min := int(math.ceil(left.x));
         x_max := int(math.ceil(right.x));
         x_dist := right.x - left.x;
@@ -151,13 +151,13 @@ fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
         z := left.z + z_x_step * x_prestep;
 
         for x in x_min..<x_max {
-            i := x + y * r.fb.width;
+            i := x + y * rc.fb.width;
 
-            if z < r.depth_buffer[i] {
-                r.depth_buffer[i] = z;
+            if z < rc.depth_buffer[i] {
+                rc.depth_buffer[i] = z;
 
                 w := 1 / one_over_w;
-                draw_pixel(r.fb, x, y, mul_color(color, w));
+                draw_pixel(rc.fb, x, y, mul_color(color, w));
             }
 
             color = add_color(color, color_x_step);
@@ -166,7 +166,7 @@ fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
         }
     }
 
-    scan_edges :: inline proc(r: ^Render_Context, a, b: ^Edge, handedness: bool) {
+    scan_edges :: inline proc(rc: ^Render_Context, a, b: ^Edge, handedness: bool) {
         left := a;
         right := b;
 
@@ -175,7 +175,7 @@ fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
         y_start := b.y_start;
         y_end := b.y_end;
         for y in y_start..<y_end {
-            draw_scan_line(r, left, right, y);
+            draw_scan_line(rc, left, right, y);
             step(left);
             step(right);
         }
@@ -197,9 +197,9 @@ fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
         };
     }
 
-    min := transform_and_perspective_divide_vertex(a, r.screen_space_transform);
-    mid := transform_and_perspective_divide_vertex(b, r.screen_space_transform);
-    max := transform_and_perspective_divide_vertex(c, r.screen_space_transform);
+    min := transform_and_perspective_divide_vertex(a, rc.screen_space_transform);
+    mid := transform_and_perspective_divide_vertex(b, rc.screen_space_transform);
+    max := transform_and_perspective_divide_vertex(c, rc.screen_space_transform);
 
     if max.pos.y < mid.pos.y do swap(&max, &mid);
     if mid.pos.y < min.pos.y do swap(&mid, &min);
@@ -213,6 +213,6 @@ fill_triangle :: proc(r: ^Render_Context, a, b, c: Vertex) {
     min_to_mid := make_edge(gradients, swizzle(min.pos, 0, 1), swizzle(mid.pos, 0, 1), 0);
     mid_to_max := make_edge(gradients, swizzle(mid.pos, 0, 1), swizzle(max.pos, 0, 1), 1);
 
-    scan_edges(r, &min_to_max, &min_to_mid, handedness);
-    scan_edges(r, &min_to_max, &mid_to_max, handedness);
+    scan_edges(rc, &min_to_max, &min_to_mid, handedness);
+    scan_edges(rc, &min_to_max, &mid_to_max, handedness);
 }
