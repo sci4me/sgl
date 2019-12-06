@@ -36,7 +36,7 @@ clear :: proc(using r: ^Render_Context, color: Color) {
     for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
-draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4) {
+draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4, $VI: typeid, program: ^Shader_Program) {
     assert(len(ibo.data) % 3 == 0);
     
     i := 0;
@@ -45,22 +45,22 @@ draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4) {
         i1 := read_buffer_element(ibo, i+1, int);
         i2 := read_buffer_element(ibo, i+2, int);
 
-        a := read_buffer_element(vbo, i0, Vertex);
-        b := read_buffer_element(vbo, i1, Vertex);
-        c := read_buffer_element(vbo, i2, Vertex);
+        a := read_buffer_element(vbo, i0, VI);
+        b := read_buffer_element(vbo, i1, VI);
+        c := read_buffer_element(vbo, i2, VI);
 
         a.pos = mul(a.pos, m);
         b.pos = mul(b.pos, m);
         c.pos = mul(c.pos, m);
 
-        fill_triangle(rc, a, b, c);
+        fill_triangle(rc, a, b, c, program);
 
         i += 3;
     }
 }
 
 @private
-fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
+fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Program) {
     Edge :: struct {
         x: f64,
         x_step: f64,
@@ -204,7 +204,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
         }
     }
 
-    scan_edges :: inline proc(rc: ^Render_Context, a, b: ^Edge, handedness: bool) {
+    scan_edges :: inline proc(rc: ^Render_Context, a, b: ^Edge, handedness: bool, program: ^Shader_Program) {
         left := a;
         right := b;
 
@@ -216,6 +216,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
             draw_scan_line(rc, left, right, y);
             step(left);
             step(right);
+            step_shading(program);
         }
     }
 
@@ -252,6 +253,11 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
     min_to_mid := make_edge(gradients, swizzle(min.pos, 0, 1), swizzle(mid.pos, 0, 1), 0);
     mid_to_max := make_edge(gradients, swizzle(mid.pos, 0, 1), swizzle(max.pos, 0, 1), 1);
 
-    scan_edges(rc, &min_to_max, &min_to_mid, handedness);
-    scan_edges(rc, &min_to_max, &mid_to_max, handedness);
+    begin_shading(program, min, mid, max);
+
+    begin_shading_edges(program, false, handedness);
+    scan_edges(rc, &min_to_max, &min_to_mid, handedness, program);
+
+    begin_shading_edges(program, true, handedness);
+    scan_edges(rc, &min_to_max, &mid_to_max, handedness, program);
 }

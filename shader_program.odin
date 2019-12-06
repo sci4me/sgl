@@ -40,6 +40,10 @@ or can we just do that dynamically during compilation? that may be better....
 
 */
 
+Init_Gradients_Proc     :: #type proc(rawptr, rawptr, rawptr, rawptr);
+Init_Edge_Proc          :: #type proc(rawptr, rawptr, V2, V2, i32);
+Step_Proc               :: #type proc(rawptr);
+
 Shader_Program :: struct {
     rc: ^Render_Context,
     
@@ -50,6 +54,7 @@ Shader_Program :: struct {
     base_vertex_type: Type,
 
     vertex_type: Type,
+    vertex_type_ptr: Type,
 
     edge_type: Type,
     edge_type_ptr: Type,
@@ -60,14 +65,28 @@ Shader_Program :: struct {
     init_edge_proc: Function,
     init_gradients_proc_signature: Type,
     init_gradients_proc: Function,
+    step_proc_signature: Type,
+    step_proc: Function,
 
     vertex_shader_signature: Type,
     vertex_shader: Function,
     fragment_shader_signature: Type,
-    fragment_shader: Function
+    fragment_shader: Function,
+
+    init_edge_proc_closure: Init_Edge_Proc,
+    init_gradients_proc_closure: Init_Gradients_Proc,
+    step_proc_closure: Step_Proc,
+
+    storage: []u8,
+    _gradients: rawptr,
+    _min_to_max: rawptr,
+    _min_to_mid: rawptr,
+    _mid_to_max: rawptr,
+    _left: rawptr,
+    _right: rawptr
 }
 
-make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $VO, _fragment_shader: proc(VO) -> Color) -> ^Shader_Program {
+make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI) -> $VO, _fragment_shader: proc "c" (VO) -> Color) -> ^Shader_Program {
     using p := new(Shader_Program);
 
     rc = _rc;
@@ -81,11 +100,12 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
 
     init_base_types :: inline proc(using p: ^Shader_Program) {
         /*
-            v2:                 (f64,f64)
-            v3:                 (f64,f64,f64)
-            v4:                 (f64,f64,f64,f64)
+            v2:                 (f64, f64)
+            v3:                 (f64, f64, f64)
+            v4:                 (f64, f64, f64,f64)
             color:              (f64, f64, f64, f64)
             base_vertex_type:   (v4)
+            vertex_type:        (base_vertex_type, VI\*)
         */
 
         v2_fields := [2]Type{jit_type_float64, jit_type_float64};
@@ -110,6 +130,7 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
         }
 
         vertex_type = type_create_struct(&fields[0], u32(len(fields)), 1);
+        vertex_type_ptr = type_create_pointer(vertex_type, 1);
     }
 
     copy_base_type :: inline proc(using p: ^Shader_Program, type: ^runtime.Type_Info) -> Type {
@@ -173,10 +194,13 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
         end := value_get_param(f, 3);
         start_index := value_get_param(f, 4);
 
-        start_x := insn_load_relative(f, start, 0, jit_type_float64);
-        start_y := insn_load_relative(f, start, size_of(f64), jit_type_float64);
-        end_x := insn_load_relative(f, end, 0, jit_type_float64);
-        end_y := insn_load_relative(f, end, size_of(f64), jit_type_float64);
+        start_a := insn_address_of(f, start);
+        end_a := insn_address_of(f, end);
+
+        start_x := insn_load_relative(f, start_a, 0, jit_type_float64);
+        start_y := insn_load_relative(f, start_a, size_of(f64), jit_type_float64);
+        end_x := insn_load_relative(f, end_a, 0, jit_type_float64);
+        end_y := insn_load_relative(f, end_a, size_of(f64), jit_type_float64);
 
         y_start := insn_convert(f, insn_ceil(f, start_y), jit_type_int, 0);
         y_end := insn_convert(f, insn_ceil(f, end_y), jit_type_int, 0);
@@ -185,7 +209,7 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
         y_dist := insn_sub(f, end_y, start_y);
 
         y_prestep := insn_sub(f, insn_convert(f, y_start, jit_type_float64, 0), start_y);
-        
+            
         x_step := insn_div(f, x_dist, y_dist);
         x := insn_add(f, start_x, insn_mul(f, y_prestep, x_step));
 
@@ -294,27 +318,22 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
 
         insn_return(f, nil);
 
-        dump_function(stdout, f, strings.unsafe_string_to_cstring("init_edge_proc"));
-
         function_compile(f);
         init_edge_proc = f;
+        init_edge_proc_closure = transmute(Init_Edge_Proc) function_to_closure(init_edge_proc);
     }
 
     init_init_gradients_proc :: inline proc(using p: ^Shader_Program, types: []^runtime.Type_Info) {
-        params := [4]Type{gradients_type_ptr, vertex_type, vertex_type, vertex_type};
+        params := [4]Type{gradients_type_ptr, vertex_type_ptr, vertex_type_ptr, vertex_type_ptr};
         init_gradients_proc_signature = type_create_signature(.Cdecl, jit_type_void, &params[0], len(params), 1);
 
         j := rc.jit_ctx;
         f := function_create(j, init_gradients_proc_signature);
 
         gradients := value_get_param(f, 0);
-
-        min := value_get_param(f, 1);
-        min_a := insn_address_of(f, min);
-        mid := value_get_param(f, 2);
-        mid_a := insn_address_of(f, mid);
-        max := value_get_param(f, 3);
-        max_a := insn_address_of(f, max);
+        min_a := value_get_param(f, 1);
+        mid_a := value_get_param(f, 2);
+        max_a := value_get_param(f, 3);
 
         min_x := insn_load_relative(f, min_a, i64(offset_of(Vertex, pos)), jit_type_float64);
         mid_x := insn_load_relative(f, mid_a, i64(offset_of(Vertex, pos)), jit_type_float64);
@@ -455,10 +474,46 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
         
         function_compile(f);
         init_gradients_proc = f;
+        init_gradients_proc_closure = transmute(Init_Gradients_Proc) function_to_closure(init_gradients_proc);
+    }
+
+    init_step_proc :: inline proc(using p: ^Shader_Program, types: []^runtime.Type_Info) {
+        params := [1]Type{edge_type_ptr};
+        step_proc_signature = type_create_signature(.Cdecl, jit_type_void, &params[0], len(params), 1);
+    
+        j := rc.jit_ctx;
+        f := function_create(j, init_gradients_proc_signature);
+
+        edge := value_get_param(f, 0);
+
+        offset := i64(0);
+        for i in 0..<len(types) {
+            c_type := copy_base_type(p, types[i]);
+            c_type_size := i64(type_get_size(c_type));
+            
+            n_floats := c_type_size / size_of(f64);
+            for i in 0..<n_floats {
+                j := i * size_of(f64);
+                a := insn_load_relative(f, edge, offset + j, jit_type_float64);
+                b := insn_load_relative(f, edge, offset + c_type_size + j, jit_type_float64);
+                c := insn_add(f, a, b);    
+                insn_store_relative(f, edge, offset + j, c);
+            }
+
+            offset += c_type_size;
+        } 
+
+        insn_return(f, nil);
+
+        function_compile(f);
+        step_proc = f;
+        step_proc_closure = transmute(Step_Proc) function_to_closure(step_proc);
     }
 
     j := rc.jit_ctx;
+
     context_build_start(j);
+    defer context_build_end(j);
 
     init_base_types(p);    
     init_vertex_type(p, field_types);
@@ -466,8 +521,13 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
     init_gradients_type(p, field_types);
     init_init_edge_proc(p, field_types);
     init_init_gradients_proc(p, field_types);
+    init_step_proc(p, field_types);
 
-    context_build_end(j);
+    storage = make([]u8, type_get_size(gradients_type) + 3 * type_get_size(edge_type));
+    _gradients = &storage[0];
+    _min_to_max = &storage[type_get_size(gradients_type)];
+    _min_to_mid = &storage[type_get_size(gradients_type) + type_get_size(edge_type)];
+    _mid_to_max = &storage[type_get_size(gradients_type) + type_get_size(edge_type) * 2];
 
     return p;
 }
@@ -477,4 +537,48 @@ delete_shader_program :: proc(using p: ^Shader_Program) {
     type_free(v3_type);
     type_free(v4_type);
     type_free(color_type);
+    type_free(base_vertex_type);
+
+    type_free(vertex_type);
+
+    type_free(edge_type);
+    type_free(edge_type_ptr);
+
+    type_free(gradients_type);
+    type_free(gradients_type_ptr);
+
+    type_free(init_edge_proc_signature);
+    type_free(init_gradients_proc_signature);
+
+    type_free(vertex_shader_signature);
+    type_free(fragment_shader_signature);
+
+    delete(storage);
+}
+
+begin_shading :: proc(using p: ^Shader_Program, min, mid, max: $VI) {
+    a, b, c := min, mid, max;
+    
+    init_gradients_proc_closure(_gradients, &a, &b, &c);
+    init_edge_proc_closure(_min_to_max, _gradients, swizzle(min.pos, 0, 1), swizzle(max.pos, 0, 1), 0);
+    init_edge_proc_closure(_min_to_mid, _gradients, swizzle(min.pos, 0, 1), swizzle(mid.pos, 0, 1), 0);
+    init_edge_proc_closure(_mid_to_max, _gradients, swizzle(mid.pos, 0, 1), swizzle(max.pos, 0, 1), 1);
+}
+
+begin_shading_edges :: proc(using p: ^Shader_Program, mid_to_max: bool, handedness: bool) {
+    left := _min_to_max;
+    
+    right: rawptr;
+    if mid_to_max   do right = _mid_to_max;
+    else            do right = _min_to_mid;
+
+    if handedness do swap(&left, &right);
+
+    _left = left;
+    _right = right;
+}
+
+step_shading :: proc(using p: ^Shader_Program) {
+    step_proc_closure(_left);
+    step_proc_closure(_right);
 }
