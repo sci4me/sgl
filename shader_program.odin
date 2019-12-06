@@ -209,7 +209,7 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
     }
 
     init_init_edge_proc :: inline proc(using p: ^Shader_Program($VI, $VO), types: []^runtime.Type_Info) {
-        params := [5]Type{edge_type_ptr, gradients_type_ptr, v2_type, v2_type, jit_type_int};
+        params := [7]Type{edge_type_ptr, gradients_type_ptr, jit_type_float64, jit_type_float64, jit_type_float64, jit_type_float64, jit_type_int};
         init_edge_proc_signature = type_create_signature(.Cdecl, jit_type_void, &params[0], len(params), 1);
     
         j := rc.jit_ctx;
@@ -217,17 +217,11 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
 
         edge := value_get_param(f, 0);
         gradients := value_get_param(f, 1);
-        start := value_get_param(f, 2);
-        end := value_get_param(f, 3);
-        start_index := value_get_param(f, 4);
-
-        start_a := insn_address_of(f, start);
-        end_a := insn_address_of(f, end);
-
-        start_x := insn_load_relative(f, start_a, 0, jit_type_float64);
-        start_y := insn_load_relative(f, start_a, size_of(f64), jit_type_float64);
-        end_x := insn_load_relative(f, end_a, 0, jit_type_float64);
-        end_y := insn_load_relative(f, end_a, size_of(f64), jit_type_float64);
+        start_x := value_get_param(f, 2);
+        start_y := value_get_param(f, 3);
+        end_x := value_get_param(f, 4);
+        end_y := value_get_param(f, 5);
+        start_index := value_get_param(f, 6);
 
         y_start := insn_convert(f, insn_ceil(f, start_y), jit_type_int, 0);
         y_end := insn_convert(f, insn_ceil(f, end_y), jit_type_int, 0);
@@ -329,10 +323,10 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
                         y_step_a
                     );
 
-                    insn_store_relative(f, edge, offset + size_of(f64) * 4, value_r);
-                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64), value_g);
-                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64) * 2, value_b);
-                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64) * 3, value_a);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4, step_r);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64), step_g);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64) * 2, step_b);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64) * 3, step_a);
                 case type_info_of(f64):
                     unimplemented();
                 case:
@@ -344,6 +338,8 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
         }
 
         insn_return(f, nil);
+
+        dump_function(stdout, f, strings.unsafe_string_to_cstring(""));
 
         function_compile(f);
         init_edge_proc = f;
@@ -693,9 +689,6 @@ delete_shader_program :: proc(using p: ^Shader_Program($VI, $VO)) {
 
     type_free(init_edge_proc_signature);
     type_free(init_gradients_proc_signature);
-
-    // type_free(vertex_shader_signature);
-    // type_free(fragment_shader_signature);
 
     delete(storage);
 }

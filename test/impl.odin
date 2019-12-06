@@ -105,6 +105,6 @@ vertex_shader_impl :: proc "c" (v: VtxIn) -> VtxOut {
 }
 
 fragment_shader_impl :: proc "c" (v: VtxOut) -> sgl.Color {
-    fmt.println(v);
+    // fmt.println(v);
     return v.color;
 }
