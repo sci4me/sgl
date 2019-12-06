@@ -40,9 +40,10 @@ or can we just do that dynamically during compilation? that may be better....
 
 */
 
-Init_Gradients_Proc     :: #type proc(rawptr, rawptr, rawptr, rawptr);
-Init_Edge_Proc          :: #type proc(rawptr, rawptr, V2, V2, i32);
-Step_Proc               :: #type proc(rawptr);
+Init_Gradients_Proc     :: #type proc "c" (rawptr, rawptr, rawptr, rawptr);
+Init_Edge_Proc          :: #type proc "c" (rawptr, rawptr, V2, V2, i32);
+Step_Proc               :: #type proc "c" (rawptr);
+Init_Current_Proc       :: #type proc "c" (rawptr, rawptr, rawptr);
 
 Shader_Program :: struct(VI, VO: typeid) {
     rc: ^Render_Context,
@@ -67,6 +68,8 @@ Shader_Program :: struct(VI, VO: typeid) {
     init_gradients_proc: Function,
     step_proc_signature: Type,
     step_proc: Function,
+    init_current_proc_type: Type,
+    init_current_proc: Function,
 
     vertex_shader_signature: Type,
     vertex_shader: Function,
@@ -75,9 +78,10 @@ Shader_Program :: struct(VI, VO: typeid) {
 
     init_edge_proc_closure: Init_Edge_Proc,
     init_gradients_proc_closure: Init_Gradients_Proc,
+    init_current_proc_closure: Init_Current_Proc,
     step_proc_closure: Step_Proc,
-    vertex_shader_closure: rawptr,
-    fragment_shader_closure: rawptr,
+    vertex_shader_closure: proc(VI) -> VO,
+    fragment_shader_closure: proc(VO) -> Color,
 
     storage: []u8,
     _gradients: rawptr,
@@ -85,7 +89,8 @@ Shader_Program :: struct(VI, VO: typeid) {
     _min_to_mid: rawptr,
     _mid_to_max: rawptr,
     _left: rawptr,
-    _right: rawptr
+    _right: rawptr,
+    _current: rawptr
 }
 
 make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI) -> $VO, _fragment_shader: proc "c" (VO) -> Color) -> ^Shader_Program(VI, VO) {
@@ -515,6 +520,88 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
         step_proc_closure = transmute(Step_Proc) function_to_closure(step_proc);
     }
 
+    init_init_current_proc :: inline proc(using p: ^Shader_Program($VI, $VO), types: []^runtime.Type_Info) {
+        params := [3]Type{edge_type_ptr, edge_type_ptr, edge_type_ptr};
+        init_current_proc_type = type_create_signature(.Cdecl, jit_type_void, &params[0], len(params), 1);
+        
+        j := rc.jit_ctx;
+        f := function_create(j, init_current_proc_type);
+
+        current := value_get_param(f, 0);
+        left := value_get_param(f, 1);
+        right := value_get_param(f, 2);
+
+        start_x := insn_load_relative(f, left, 0, jit_type_float64);
+        start_y := insn_load_relative(f, left, size_of(f64), jit_type_float64);
+        end_x := insn_load_relative(f, right, 0, jit_type_float64);
+        end_y := insn_load_relative(f, right, size_of(f64), jit_type_float64);
+
+        x_start := insn_convert(f, insn_ceil(f, start_x), jit_type_int, 0);
+        x_end := insn_convert(f, insn_ceil(f, end_x), jit_type_int, 0);
+
+        x_dist := insn_sub(f, end_x, start_x);
+        x_prestep := insn_sub(f, insn_convert(f, x_start, jit_type_float64, 0), start_x);
+
+        offset := i64(0);
+        for i in 0..<len(types) {
+            c_type := copy_base_type(p, types[i]);
+            c_type_size := i64(type_get_size(c_type));
+
+            switch types[i] {
+                case type_info_of(V2):
+                    unimplemented();
+                case type_info_of(V3):
+                    unimplemented();
+                case type_info_of(V4):
+                    unimplemented();
+                case type_info_of(Color):
+                    left_r := insn_load_relative(f, left, offset, jit_type_float64);
+                    left_g := insn_load_relative(f, left, offset + size_of(f64), jit_type_float64);
+                    left_b := insn_load_relative(f, left, offset + size_of(f64) * 2, jit_type_float64);
+                    left_a := insn_load_relative(f, left, offset + size_of(f64) * 3, jit_type_float64);
+
+                    right_r := insn_load_relative(f, right, offset, jit_type_float64);
+                    right_g := insn_load_relative(f, right, offset + size_of(f64), jit_type_float64);
+                    right_b := insn_load_relative(f, right, offset + size_of(f64) * 2, jit_type_float64);
+                    right_a := insn_load_relative(f, right, offset + size_of(f64) * 3, jit_type_float64);
+
+                    x_step_r := insn_div(f, insn_sub(f, right_r, left_r), x_dist);
+                    x_step_g := insn_div(f, insn_sub(f, right_g, left_g), x_dist);
+                    x_step_b := insn_div(f, insn_sub(f, right_b, left_b), x_dist);
+                    x_step_a := insn_div(f, insn_sub(f, right_a, left_a), x_dist);
+
+                    insn_store_relative(f, current, offset + size_of(f64) * 4, x_step_r);
+                    insn_store_relative(f, current, offset + size_of(f64) * 4 + size_of(f64), x_step_g);
+                    insn_store_relative(f, current, offset + size_of(f64) * 4 + size_of(f64) * 2, x_step_b);
+                    insn_store_relative(f, current, offset + size_of(f64) * 4 + size_of(f64) * 3, x_step_a);
+
+                    value_r := insn_add(f, left_r, insn_mul(f, x_step_r, x_prestep));
+                    value_g := insn_add(f, left_g, insn_mul(f, x_step_g, x_prestep));
+                    value_b := insn_add(f, left_b, insn_mul(f, x_step_b, x_prestep));
+                    value_a := insn_add(f, left_a, insn_mul(f, x_step_a, x_prestep));
+
+                    insn_store_relative(f, current, offset, value_r);
+                    insn_store_relative(f, current, offset + size_of(f64), value_g);
+                    insn_store_relative(f, current, offset + size_of(f64) * 2, value_b);
+                    insn_store_relative(f, current, offset + size_of(f64) * 3, value_a);
+                case type_info_of(f64):
+                    unimplemented();
+                case:
+                    assert(false);
+            }
+
+            offset += c_type_size * 2;
+        }
+
+        insn_return(f, nil);
+
+        dump_function(stdout, f, strings.unsafe_string_to_cstring(""));
+
+        function_compile(f);
+        init_current_proc = f;
+        init_current_proc_closure = transmute(Init_Current_Proc) function_to_closure(init_current_proc);
+    }
+
     init_vertex_shader :: inline proc(using p: ^Shader_Program($VI, $VO), types: []^runtime.Type_Info) {
 
     }
@@ -535,14 +622,16 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
     init_init_edge_proc(p, field_types);
     init_init_gradients_proc(p, field_types);
     init_step_proc(p, field_types);
+    init_init_current_proc(p, field_types);
     init_vertex_shader(p, field_types);
     init_fragment_shader(p, field_types);
 
-    storage = make([]u8, type_get_size(gradients_type) + 3 * type_get_size(edge_type));
+    storage = make([]u8, type_get_size(gradients_type) + 4 * type_get_size(edge_type));
     _gradients = &storage[0];
     _min_to_max = &storage[type_get_size(gradients_type)];
     _min_to_mid = &storage[type_get_size(gradients_type) + type_get_size(edge_type)];
     _mid_to_max = &storage[type_get_size(gradients_type) + type_get_size(edge_type) * 2];
+    _current = &storage[type_get_size(gradients_type) + type_get_size(edge_type) * 3];
 
     return p;
 }
@@ -596,4 +685,12 @@ begin_shading_edges :: proc(using p: ^Shader_Program($VI, $VO), mid_to_max: bool
 step_shading :: proc(using p: ^Shader_Program($VI, $VO)) {
     step_proc_closure(_left);
     step_proc_closure(_right);
+}
+
+begin_shading_scan_line :: proc(using p: ^Shader_Program($VI, $VO)) {
+    init_current_proc_closure(_current, _left, _right);
+}
+
+step_scan_line_shading :: proc(using p: ^Shader_Program($VI, $VO)) {
+    step_proc_closure(_current);
 }

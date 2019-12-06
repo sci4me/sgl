@@ -169,7 +169,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         z += z_step;
     }
 
-    draw_scan_line :: inline proc(rc: ^Render_Context, left, right: ^Edge, y: int) {
+    draw_scan_line :: inline proc(rc: ^Render_Context, left, right: ^Edge, y: int, program: ^Shader_Program($VI, $VO)) {
         x_min := int(math.ceil(left.x));
         x_max := int(math.ceil(right.x));
         x_dist := right.x - left.x;
@@ -182,6 +182,8 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         //color := add_color(left.color, mul_color(color_x_step, x_prestep));
         one_over_w := left.one_over_w + one_over_w_x_step * x_prestep;
         z := left.z + z_x_step * x_prestep;
+
+        begin_shading_scan_line(program);
 
         for x in x_min..<x_max {
             i := x + y * rc.target.width;
@@ -201,6 +203,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
             // color = add_color(color, color_x_step);
             one_over_w += one_over_w_x_step;
             z += z_x_step;
+            step_scan_line_shading(program);
         }
     }
 
@@ -213,7 +216,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         y_start := b.y_start;
         y_end := b.y_end;
         for y in y_start..<y_end {
-            draw_scan_line(rc, left, right, y);
+            draw_scan_line(rc, left, right, y, program);
             step(left);
             step(right);
             step_shading(program);
@@ -233,11 +236,11 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         v.pos = perspective_divide(mul(v.pos, m));
     }
 
-    // TODO: vertex shader on a, b, c
- 
     min := a;
     mid := b;
     max := c;
+
+    // TODO: vertex shader on min, mid, max
 
     transform_and_perspective_divide_vertex(&min, rc.screen_space_transform);
     transform_and_perspective_divide_vertex(&mid, rc.screen_space_transform);
