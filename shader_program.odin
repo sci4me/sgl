@@ -76,6 +76,8 @@ Shader_Program :: struct {
     init_edge_proc_closure: Init_Edge_Proc,
     init_gradients_proc_closure: Init_Gradients_Proc,
     step_proc_closure: Step_Proc,
+    vertex_shader_closure: rawptr,
+    fragment_shader_closure: rawptr,
 
     storage: []u8,
     _gradients: rawptr,
@@ -92,11 +94,14 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
     rc = _rc;
 
     vi_info := type_info_of(VI);
+    vo_info := type_info_of(VO);
     assert(reflect.is_struct(vi_info));
+    assert(reflect.is_struct(vo_info));
 
-    types := reflect.struct_field_types(VI);
-    assert(types[0] == type_info_of(Vertex));
-    field_types := types[1:];
+    input_types := reflect.struct_field_types(VI);
+    assert(input_types[0] == type_info_of(Vertex));
+
+    field_types := reflect.struct_field_types(VO);
 
     init_base_types :: inline proc(using p: ^Shader_Program) {
         /*
@@ -126,7 +131,7 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
         fields[0] = type_copy(base_vertex_type);
 
         for i in 0..<len(types) {
-            fields[i+1] = copy_base_type(p, types[i]);
+            fields[i + 1] = copy_base_type(p, types[i]);
         }
 
         vertex_type = type_create_struct(&fields[0], u32(len(fields)), 1);

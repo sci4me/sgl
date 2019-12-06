@@ -7,8 +7,12 @@ import "core:mem"
 
 import "shared:sgl"
 
-VTX :: struct {
+VtxIn :: struct {
     using base: sgl.Vertex,
+    color: sgl.Color
+}
+
+VtxOut :: struct {
     color: sgl.Color
 }
 
@@ -37,19 +41,19 @@ init :: proc() {
     model := sgl.load_obj_model(string(data));
     defer sgl.destroy(model);
 
-    model_vbo = sgl.make_buffer(size_of(VTX) * len(model.positions));
+    model_vbo = sgl.make_buffer(size_of(VtxIn) * len(model.positions));
     model_ibo = sgl.make_buffer(size_of(int) * len(model.indices));
 
-    for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vbo, i, VTX{sgl.Vertex{model.positions[i]}, sgl.Color{1, 1, 1, 1}});
+    for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vbo, i, VtxIn{sgl.Vertex{model.positions[i]}, sgl.Color{1, 1, 1, 1}});
     for i in 0..<len(model.indices) do   sgl.write_buffer_element(model_ibo, i, model.indices[i].vertex_index);
 
-    plane_vbo = sgl.make_buffer(size_of(VTX) * 4);
+    plane_vbo = sgl.make_buffer(size_of(VtxIn) * 4);
     plane_ibo = sgl.make_buffer(size_of(int) * 6);
 
-    sgl.write_buffer_element(plane_vbo, 0, VTX{sgl.Vertex{sgl.V4{-1, -1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vbo, 1, VTX{sgl.Vertex{sgl.V4{-1,  1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vbo, 2, VTX{sgl.Vertex{sgl.V4{ 1, -1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vbo, 3, VTX{sgl.Vertex{sgl.V4{ 1,  1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 0, VtxIn{sgl.Vertex{sgl.V4{-1, -1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 1, VtxIn{sgl.Vertex{sgl.V4{-1,  1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 2, VtxIn{sgl.Vertex{sgl.V4{ 1, -1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 3, VtxIn{sgl.Vertex{sgl.V4{ 1,  1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
     sgl.write_buffer_element(plane_ibo, 0, 0);
     sgl.write_buffer_element(plane_ibo, 1, 1);
     sgl.write_buffer_element(plane_ibo, 2, 3);
@@ -82,7 +86,7 @@ render :: proc(fb: ^sgl.Bitmap) {
 
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
-        sgl.draw_indexed(rc, model_vbo, model_ibo, m, VTX, program);
+        sgl.draw_indexed(rc, model_vbo, model_ibo, m, VtxIn, program);
     }
 
     {
@@ -96,10 +100,10 @@ render :: proc(fb: ^sgl.Bitmap) {
     mem.copy(&fb.buffer.data[0], &rc.target.buffer.data[0], len(fb.buffer.data));
 }
 
-vertex_shader_impl :: proc "c" (v: VTX) -> VTX {
-    return v;
+vertex_shader_impl :: proc "c" (v: VtxIn) -> VtxOut {
+    return VtxOut{v.color};
 }
 
-fragment_shader_impl :: proc "c" (v: VTX) -> sgl.Color {
+fragment_shader_impl :: proc "c" (v: VtxOut) -> sgl.Color {
     return v.color;
 }
