@@ -193,11 +193,13 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
 
                 w := 1 / one_over_w;
                 //real_color := mul_color(color, w);
-                real_color := Color{1, 1, 1, 1};
+
+                vertex_output := shade_vertex(program);
+                color := program.fragment_shader(vertex_output);
 
                 // TODO: fragment shader
 
-                draw_pixel(rc.target, x, y, real_color);
+                draw_pixel(rc.target, x, y, color);
             }
 
             // color = add_color(color, color_x_step);
@@ -236,29 +238,34 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         v.pos = perspective_divide(mul(v.pos, m));
     }
 
-    min := a;
-    mid := b;
-    max := c;
+    IOP :: struct {
+        i: VI,
+        o: VO
+    };
+
+    min := IOP{a, program.vertex_shader(a)};
+    mid := IOP{b, program.vertex_shader(b)};
+    max := IOP{c, program.vertex_shader(c)};
 
     // TODO: vertex shader on min, mid, max
 
-    transform_and_perspective_divide_vertex(&min, rc.screen_space_transform);
-    transform_and_perspective_divide_vertex(&mid, rc.screen_space_transform);
-    transform_and_perspective_divide_vertex(&max, rc.screen_space_transform);
+    transform_and_perspective_divide_vertex(&min.i, rc.screen_space_transform);
+    transform_and_perspective_divide_vertex(&mid.i, rc.screen_space_transform);
+    transform_and_perspective_divide_vertex(&max.i, rc.screen_space_transform);
 
-    if max.pos.y < mid.pos.y do swap(&max, &mid);
-    if mid.pos.y < min.pos.y do swap(&mid, &min);
-    if max.pos.y < mid.pos.y do swap(&max, &mid);
+    if max.i.pos.y < mid.i.pos.y do swap(&max, &mid);
+    if mid.i.pos.y < min.i.pos.y do swap(&mid, &min);
+    if max.i.pos.y < mid.i.pos.y do swap(&max, &mid);
 
-    handedness := triangle_area_times_two(swizzle(min.pos, 0, 1), swizzle(max.pos, 0, 1), swizzle(mid.pos, 0, 1)) > 0;
+    handedness := triangle_area_times_two(swizzle(min.i.pos, 0, 1), swizzle(max.i.pos, 0, 1), swizzle(mid.i.pos, 0, 1)) > 0;
     
-    gradients := make_gradients(min, mid, max);
+    gradients := make_gradients(min.i, mid.i, max.i);
 
-    min_to_max := make_edge(gradients, swizzle(min.pos, 0, 1), swizzle(max.pos, 0, 1), 0);
-    min_to_mid := make_edge(gradients, swizzle(min.pos, 0, 1), swizzle(mid.pos, 0, 1), 0);
-    mid_to_max := make_edge(gradients, swizzle(mid.pos, 0, 1), swizzle(max.pos, 0, 1), 1);
+    min_to_max := make_edge(gradients, swizzle(min.i.pos, 0, 1), swizzle(max.i.pos, 0, 1), 0);
+    min_to_mid := make_edge(gradients, swizzle(min.i.pos, 0, 1), swizzle(mid.i.pos, 0, 1), 0);
+    mid_to_max := make_edge(gradients, swizzle(mid.i.pos, 0, 1), swizzle(max.i.pos, 0, 1), 1);
 
-    begin_shading(program, min, mid, max);
+    begin_shading(program, min.i, mid.i, max.i);
 
     begin_shading_edges(program, false, handedness);
     scan_edges(rc, &min_to_max, &min_to_mid, handedness, program);
