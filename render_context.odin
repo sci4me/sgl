@@ -3,33 +3,30 @@ package sgl
 import "core:fmt"
 import "core:math"
 
-Vertex :: struct {
-    pos: V4,
-    color: Color
-}
+import jit "shared:odin-libjit"
 
-Vertex_Shader :: #type proc(vertex: Vertex) -> Vertex;
-Fragment_Shader :: #type proc(uv: V2, color: Color) -> Color;
+Vertex :: struct {
+    pos: V4
+}
 
 Render_Context :: struct {
+    jit_ctx: jit.Context,
     target: ^Bitmap,
     depth_buffer: []f64,
-    screen_space_transform: M4,
-    vertex_shader: Vertex_Shader,
-    fragment_shader: Fragment_Shader
+    screen_space_transform: M4
 }
 
-make_render_context :: proc(width, height: int, _vertex_shader: Vertex_Shader, _fragment_shader: Fragment_Shader) -> ^Render_Context {
+make_render_context :: proc(width, height: int) -> ^Render_Context {
     using r := new(Render_Context);
+    jit_ctx = jit.context_create();
     target = make_bitmap(width, height);
     depth_buffer = make([]f64, width * height);
     screen_space_transform = make_screen_space_transform(f64(width), f64(height));
-    vertex_shader = _vertex_shader;
-    fragment_shader = _fragment_shader;
     return r;
 }
 
 delete_render_context :: proc(using r: ^Render_Context) {
+    jit.context_destroy(jit_ctx);
     destroy(target);
     delete(depth_buffer);
 }
@@ -40,6 +37,8 @@ clear :: proc(using r: ^Render_Context, color: Color) {
 }
 
 draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4) {
+    assert(len(ibo.data) % 3 == 0);
+    
     i := 0;
     for i < len(ibo.data) / size_of(int) {
         i0 := read_buffer_element(ibo, i, int);
@@ -67,8 +66,8 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
         x_step: f64,
         y_start: int,
         y_end: int,
-        color: Color,
-        color_step: Color,
+        //color: Color,
+        //color_step: Color,
         one_over_w: f64,
         one_over_w_step: f64,
         z: f64,
@@ -76,11 +75,11 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
     };
 
     Gradients :: struct {
-        color: [3]Color,
+        // color: [3]Color,
         one_over_w: [3]f64,
         z: [3]f64,
-        color_x_step: Color,
-        color_y_step: Color,
+        //color_x_step: Color,
+        //color_y_step: Color,
         one_over_w_x_step: f64,
         one_over_w_y_step: f64,
         z_x_step: f64,
@@ -115,17 +114,17 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
 
         vertices := [3]Vertex{min, mid, max};
         positions := [3]V4{min.pos, mid.pos, max.pos};
-        colors := [3]Color{min.color, mid.color, max.color};
+        //colors := [3]Color{min.color, mid.color, max.color};
         
         inline for i in 0..<3 do one_over_w[i] = 1 / positions[i].w;
-        inline for i in 0..<3 do color[i] = mul_color(colors[i], one_over_w[i]);
+        // inline for i in 0..<3 do color[i] = mul_color(colors[i], one_over_w[i]);
         inline for i in 0..<3 do z[i] = positions[i].z;
 
         one_over_dx := 1 / ((mid.pos.x - max.pos.x) * (min.pos.y - max.pos.y) - (min.pos.x - max.pos.x) * (mid.pos.y - max.pos.y));
         one_over_dy := -one_over_dx;
 
-        color_x_step = calc_color_step(color, positions, one_over_dx, calc_x_step);
-        color_y_step = calc_color_step(color, positions, one_over_dy, calc_y_step);
+        //color_x_step = calc_color_step(color, positions, one_over_dx, calc_x_step);
+        //color_y_step = calc_color_step(color, positions, one_over_dy, calc_y_step);
 
         one_over_w_x_step = calc_x_step(one_over_w, positions, one_over_dx);
         one_over_w_y_step = calc_y_step(one_over_w, positions, one_over_dy);
@@ -151,8 +150,8 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
 
         x_prestep := x - start.x;
 
-        color = add_color(gs.color[start_index], add_color(mul_color(gs.color_x_step, x_prestep), mul_color(gs.color_y_step, y_prestep)));
-        color_step = add_color(mul_color(gs.color_x_step, x_step), gs.color_y_step);
+        //color = add_color(gs.color[start_index], add_color(mul_color(gs.color_x_step, x_prestep), mul_color(gs.color_y_step, y_prestep)));
+        //color_step = add_color(mul_color(gs.color_x_step, x_step), gs.color_y_step);
 
         one_over_w = gs.one_over_w[start_index] + gs.one_over_w_x_step * x_prestep + gs.one_over_w_y_step * y_prestep;
         one_over_w_step = gs.one_over_w_y_step + gs.one_over_w_x_step * x_step;
@@ -165,7 +164,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
 
     step :: inline proc(using e: ^Edge) {
         x += x_step;
-        color = add_color(color, color_step);
+        //color = add_color(color, color_step);
         one_over_w += one_over_w_step;
         z += z_step;
     }
@@ -176,11 +175,11 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
         x_dist := right.x - left.x;
         x_prestep := f64(x_min) - left.x;
 
-        color_x_step := div_color(sub_color(right.color, left.color), x_dist);
+        //color_x_step := div_color(sub_color(right.color, left.color), x_dist);
         one_over_w_x_step := (right.one_over_w - left.one_over_w) / x_dist;
         z_x_step := (right.z - left.z) / x_dist;
 
-        color := add_color(left.color, mul_color(color_x_step, x_prestep));
+        //color := add_color(left.color, mul_color(color_x_step, x_prestep));
         one_over_w := left.one_over_w + one_over_w_x_step * x_prestep;
         z := left.z + z_x_step * x_prestep;
 
@@ -191,14 +190,15 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
                 rc.depth_buffer[i] = z;
 
                 w := 1 / one_over_w;
-                real_color := mul_color(color, w);
+                //real_color := mul_color(color, w);
+                real_color := Color{1, 1, 1, 1};
 
-                f := rc.fragment_shader(V2{f64(x) / f64(rc.target.width), f64(y) / f64(rc.target.height)}, real_color);
+                // TODO: fragment shader
 
-                draw_pixel(rc.target, x, y, f);
+                draw_pixel(rc.target, x, y, real_color);
             }
 
-            color = add_color(color, color_x_step);
+            // color = add_color(color, color_x_step);
             one_over_w += one_over_w_x_step;
             z += z_x_step;
         }
@@ -230,18 +230,15 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: Vertex) {
         }
 
         return Vertex{
-            perspective_divide(mul(v.pos, m)),
-            v.color
+            perspective_divide(mul(v.pos, m))
         };
     }
 
-    as := rc.vertex_shader(a);
-    bs := rc.vertex_shader(b);
-    cs := rc.vertex_shader(c);
-
-    min := transform_and_perspective_divide_vertex(as, rc.screen_space_transform);
-    mid := transform_and_perspective_divide_vertex(bs, rc.screen_space_transform);
-    max := transform_and_perspective_divide_vertex(cs, rc.screen_space_transform);
+    // TODO: vertex shader on a, b, c
+ 
+    min := transform_and_perspective_divide_vertex(a, rc.screen_space_transform);
+    mid := transform_and_perspective_divide_vertex(b, rc.screen_space_transform);
+    max := transform_and_perspective_divide_vertex(c, rc.screen_space_transform);
 
     if max.pos.y < mid.pos.y do swap(&max, &mid);
     if mid.pos.y < min.pos.y do swap(&mid, &min);

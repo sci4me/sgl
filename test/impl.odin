@@ -7,7 +7,13 @@ import "core:mem"
 
 import "shared:sgl"
 
+Vertex :: struct {
+    using base: sgl.Vertex,
+    color: sgl.Color
+}
+
 rc: ^sgl.Render_Context;
+program: ^sgl.Shader_Program;
 
 t := 0.0;
 projection: sgl.M4;
@@ -19,13 +25,14 @@ plane_vbo: ^sgl.Buffer;
 plane_ibo: ^sgl.Buffer;
 
 init :: proc() {
-    rc = sgl.make_render_context(WIDTH, HEIGHT, vertex_shader_impl, fragment_shader_impl);
+    rc = sgl.make_render_context(WIDTH, HEIGHT);
+    program = sgl.make_shader_program(rc, vertex_shader_impl, fragment_shader_impl);
 
     projection = sgl.make_perspective(70, f64(WIDTH)/f64(HEIGHT), 0.1, 1000);
 
     data, ok := os.read_entire_file("models/icosphere.obj");
     if !ok do panic("Could not read model file");
-    defer delete(data);
+    // defer delete(data); 
 
     model := sgl.load_obj_model(string(data));
     defer sgl.destroy(model);
@@ -33,16 +40,16 @@ init :: proc() {
     model_vbo = sgl.make_buffer(size_of(sgl.Vertex) * len(model.positions));
     model_ibo = sgl.make_buffer(size_of(int) * len(model.indices));
 
-    for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vbo, i, sgl.Vertex{model.positions[i], sgl.Color{1, 1, 1, 1}});
+    for i in 0..<len(model.positions) do sgl.write_buffer_element(model_vbo, i, Vertex{sgl.Vertex{model.positions[i]}, sgl.Color{1, 1, 1, 1}});
     for i in 0..<len(model.indices) do   sgl.write_buffer_element(model_ibo, i, model.indices[i].vertex_index);
 
-    plane_vbo = sgl.make_buffer(size_of(sgl.Vertex) * 4);
+    plane_vbo = sgl.make_buffer(size_of(Vertex) * 4);
     plane_ibo = sgl.make_buffer(size_of(int) * 6);
 
-    sgl.write_buffer_element(plane_vbo, 0, sgl.Vertex{sgl.V4{-1, -1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vbo, 1, sgl.Vertex{sgl.V4{-1,  1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vbo, 2, sgl.Vertex{sgl.V4{ 1, -1, 0, 1}, sgl.Color{0, 1, 0, 1}});
-    sgl.write_buffer_element(plane_vbo, 3, sgl.Vertex{sgl.V4{ 1,  1, 0, 1}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 0, Vertex{sgl.Vertex{sgl.V4{-1, -1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 1, Vertex{sgl.Vertex{sgl.V4{-1,  1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 2, Vertex{sgl.Vertex{sgl.V4{ 1, -1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
+    sgl.write_buffer_element(plane_vbo, 3, Vertex{sgl.Vertex{sgl.V4{ 1,  1, 0, 1}}, sgl.Color{0, 1, 0, 1}});
     sgl.write_buffer_element(plane_ibo, 0, 0);
     sgl.write_buffer_element(plane_ibo, 1, 1);
     sgl.write_buffer_element(plane_ibo, 2, 3);
@@ -52,13 +59,14 @@ init :: proc() {
 }
 
 shutdown :: proc() {
-    sgl.destroy(rc);
-
     sgl.destroy(model_vbo);
     sgl.destroy(model_ibo);
 
     sgl.destroy(plane_vbo);
     sgl.destroy(plane_ibo);
+    
+    sgl.destroy(program);
+    sgl.destroy(rc);
 }
 
 tick :: proc(dt: f64) {
@@ -88,10 +96,10 @@ render :: proc(fb: ^sgl.Bitmap) {
     mem.copy(&fb.buffer.data[0], &rc.target.buffer.data[0], len(fb.buffer.data));
 }
 
-vertex_shader_impl :: proc(v: sgl.Vertex) -> sgl.Vertex {
+vertex_shader_impl :: proc(v: Vertex) -> Vertex {
     return v;
 }
 
-fragment_shader_impl :: proc(frag_uv: sgl.V2, color: sgl.Color) -> sgl.Color {
-    return color;
+fragment_shader_impl :: proc(v: Vertex) -> sgl.Color {
+    return v.color;
 }
