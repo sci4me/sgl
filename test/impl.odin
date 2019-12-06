@@ -17,7 +17,7 @@ VtxOut :: struct {
 }
 
 rc: ^sgl.Render_Context;
-program: ^sgl.Shader_Program;
+program: ^sgl.Shader_Program(VtxIn, VtxOut);
 
 t := 0.0;
 projection: sgl.M4;
@@ -86,7 +86,7 @@ render :: proc(fb: ^sgl.Bitmap) {
 
         m := sgl.mul(projection, sgl.mul(translation, rotation));
 
-        sgl.draw_indexed(rc, model_vbo, model_ibo, m, VtxIn, program);
+        sgl.draw_indexed(rc, model_vbo, model_ibo, m, program);
     }
 
     {
@@ -94,7 +94,7 @@ render :: proc(fb: ^sgl.Bitmap) {
 
         m := sgl.mul(projection, translation);
 
-        //sgl.draw_indexed(rc, plane_vbo, plane_ibo, m, VTX);
+        // sgl.draw_indexed(rc, plane_vbo, plane_ibo, m, program);
     }
 
     mem.copy(&fb.buffer.data[0], &rc.target.buffer.data[0], len(fb.buffer.data));

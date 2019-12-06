@@ -36,7 +36,7 @@ clear :: proc(using r: ^Render_Context, color: Color) {
     for i in 0..<len(depth_buffer) do depth_buffer[i] = math.F64_MAX;
 }
 
-draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4, $VI: typeid, program: ^Shader_Program) {
+draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4, program: ^Shader_Program($VI, $VO)) {
     assert(len(ibo.data) % 3 == 0);
     
     i := 0;
@@ -60,7 +60,7 @@ draw_indexed :: proc(rc: ^Render_Context, vbo, ibo: ^Buffer, m: M4, $VI: typeid,
 }
 
 @private
-fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Program) {
+fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Program(VI, $VO)) {
     Edge :: struct {
         x: f64,
         x_step: f64,
@@ -204,7 +204,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         }
     }
 
-    scan_edges :: inline proc(rc: ^Render_Context, a, b: ^Edge, handedness: bool, program: ^Shader_Program) {
+    scan_edges :: inline proc(rc: ^Render_Context, a, b: ^Edge, handedness: bool, program: ^Shader_Program($VI, $VO)) {
         left := a;
         right := b;
 
@@ -220,7 +220,7 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         }
     }
 
-    transform_and_perspective_divide_vertex :: inline proc(v: Vertex, m: M4) -> Vertex {
+    transform_and_perspective_divide_vertex :: inline proc(v: ^$VI, m: M4) {
         perspective_divide :: inline proc(v: V4) -> V4 {
             return V4{
                 v.x / v.w,
@@ -230,16 +230,18 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
             };
         }
 
-        return Vertex{
-            perspective_divide(mul(v.pos, m))
-        };
+        v.pos = perspective_divide(mul(v.pos, m));
     }
 
     // TODO: vertex shader on a, b, c
  
-    min := transform_and_perspective_divide_vertex(a, rc.screen_space_transform);
-    mid := transform_and_perspective_divide_vertex(b, rc.screen_space_transform);
-    max := transform_and_perspective_divide_vertex(c, rc.screen_space_transform);
+    min := a;
+    mid := b;
+    max := c;
+
+    transform_and_perspective_divide_vertex(&min, rc.screen_space_transform);
+    transform_and_perspective_divide_vertex(&mid, rc.screen_space_transform);
+    transform_and_perspective_divide_vertex(&max, rc.screen_space_transform);
 
     if max.pos.y < mid.pos.y do swap(&max, &mid);
     if mid.pos.y < min.pos.y do swap(&mid, &min);
