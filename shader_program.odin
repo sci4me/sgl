@@ -52,6 +52,7 @@ Shader_Program :: struct {
     vertex_type: Type,
 
     edge_type: Type,
+    edge_type_ptr: Type,
     gradients_type: Type,
     gradients_type_ptr: Type,
     
@@ -139,6 +140,7 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
         }
 
         edge_type = type_create_struct(&fields[0], u32(len(fields)), 1);
+        edge_type_ptr = type_create_pointer(edge_type, 1);
     }
 
     init_gradients_type :: inline proc(using p: ^Shader_Program, types: []^runtime.Type_Info) {
@@ -159,12 +161,148 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
     }
 
     init_init_edge_proc :: inline proc(using p: ^Shader_Program, types: []^runtime.Type_Info) {
+        params := [5]Type{edge_type_ptr, gradients_type_ptr, v2_type, v2_type, jit_type_int};
+        init_edge_proc_signature = type_create_signature(.Cdecl, jit_type_void, &params[0], len(params), 1);
+    
+        j := rc.jit_ctx;
+        f := function_create(j, init_edge_proc_signature);
 
+        edge := value_get_param(f, 0);
+        gradients := value_get_param(f, 1);
+        start := value_get_param(f, 2);
+        end := value_get_param(f, 3);
+        start_index := value_get_param(f, 4);
+
+        start_x := insn_load_relative(f, start, 0, jit_type_float64);
+        start_y := insn_load_relative(f, start, size_of(f64), jit_type_float64);
+        end_x := insn_load_relative(f, end, 0, jit_type_float64);
+        end_y := insn_load_relative(f, end, size_of(f64), jit_type_float64);
+
+        y_start := insn_convert(f, insn_ceil(f, start_y), jit_type_int, 0);
+        y_end := insn_convert(f, insn_ceil(f, end_y), jit_type_int, 0);
+
+        x_dist := insn_sub(f, end_x, start_x);
+        y_dist := insn_sub(f, end_y, start_y);
+
+        y_prestep := insn_sub(f, insn_convert(f, y_start, jit_type_float64, 0), start_y);
+        
+        x_step := insn_div(f, x_dist, y_dist);
+        x := insn_add(f, start_x, insn_mul(f, y_prestep, x_step));
+
+        x_prestep := insn_sub(f, x, start_x);
+
+        offset := i64(0);
+        gradient_offset := i64(0);
+        for i in 0..<len(types) {
+            c_type := copy_base_type(p, types[i]);
+            c_type_size := i64(type_get_size(c_type));
+            c_type_size_value := value_create_nint_constant(f, jit_type_int, c_type_size);
+
+            base_addr := insn_add(f, gradients, value_create_nint_constant(f, jit_type_int, gradient_offset));
+
+            switch types[i] {
+                case type_info_of(V2):
+                    unimplemented();
+                case type_info_of(V3):
+                    unimplemented();
+                case type_info_of(V4):
+                    unimplemented();
+                case type_info_of(Color):
+                    start := insn_load_elem_address(f, base_addr, start_index, color_type);
+                    x_step := insn_load_elem_address(f, base_addr, value_create_nint_constant(f, jit_type_int, 3), color_type);
+                    y_step := insn_load_elem_address(f, base_addr, value_create_nint_constant(f, jit_type_int, 4), color_type);
+
+                    start_r := insn_load_relative(f, start, 0, jit_type_float64);
+                    start_g := insn_load_relative(f, start, size_of(f64), jit_type_float64);
+                    start_b := insn_load_relative(f, start, size_of(f64) * 2, jit_type_float64);
+                    start_a := insn_load_relative(f, start, size_of(f64) * 3, jit_type_float64);
+
+                    x_step_r := insn_load_relative(f, x_step, 0, jit_type_float64);
+                    x_step_g := insn_load_relative(f, x_step, size_of(f64), jit_type_float64);
+                    x_step_b := insn_load_relative(f, x_step, size_of(f64) * 2, jit_type_float64);
+                    x_step_a := insn_load_relative(f, x_step, size_of(f64) * 3, jit_type_float64);
+
+                    y_step_r := insn_load_relative(f, y_step, 0, jit_type_float64);
+                    y_step_g := insn_load_relative(f, y_step, size_of(f64), jit_type_float64);
+                    y_step_b := insn_load_relative(f, y_step, size_of(f64) * 2, jit_type_float64);
+                    y_step_a := insn_load_relative(f, y_step, size_of(f64) * 3, jit_type_float64);
+
+                    value_r := insn_add(f, 
+                        start_r, 
+                        insn_add(f,
+                            insn_mul(f, x_step_r, x_prestep),
+                            insn_mul(f, y_step_r, y_prestep)
+                        )
+                    );
+                    value_g := insn_add(f, 
+                        start_g, 
+                        insn_add(f,
+                            insn_mul(f, x_step_g, x_prestep),
+                            insn_mul(f, y_step_g, y_prestep)
+                        )
+                    );
+                    value_b := insn_add(f, 
+                        start_b, 
+                        insn_add(f,
+                            insn_mul(f, x_step_b, x_prestep),
+                            insn_mul(f, y_step_b, y_prestep)
+                        )
+                    );
+                    value_a := insn_add(f, 
+                        start_a, 
+                        insn_add(f,
+                            insn_mul(f, x_step_a, x_prestep),
+                            insn_mul(f, y_step_a, y_prestep)
+                        )
+                    );
+
+                    insn_store_relative(f, edge, offset, value_r);
+                    insn_store_relative(f, edge, offset + size_of(f64), value_g);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 2, value_b);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 3, value_a);
+
+                    step_r := insn_add(f,
+                        insn_mul(f, x_step_r, x_step),
+                        y_step_r
+                    );
+                    step_g := insn_add(f,
+                        insn_mul(f, x_step_g, x_step),
+                        y_step_g
+                    );
+                    step_b := insn_add(f,
+                        insn_mul(f, x_step_b, x_step),
+                        y_step_b
+                    );
+                    step_a := insn_add(f,
+                        insn_mul(f, x_step_a, x_step),
+                        y_step_a
+                    );
+
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4, value_r);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64), value_g);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64) * 2, value_b);
+                    insn_store_relative(f, edge, offset + size_of(f64) * 4 + size_of(f64) * 3, value_a);
+                case type_info_of(f64):
+                    unimplemented();
+                case:
+                    assert(false);
+            }
+
+            offset += c_type_size * 2;
+            gradient_offset += c_type_size * 5;
+        }
+
+        insn_return(f, nil);
+
+        dump_function(stdout, f, strings.unsafe_string_to_cstring("init_edge_proc"));
+
+        function_compile(f);
+        init_edge_proc = f;
     }
 
     init_init_gradients_proc :: inline proc(using p: ^Shader_Program, types: []^runtime.Type_Info) {
         params := [4]Type{gradients_type_ptr, vertex_type, vertex_type, vertex_type};
-        init_gradients_proc_signature = type_create_signature(.Cdecl, gradients_type, &params[0], len(params), 1);
+        init_gradients_proc_signature = type_create_signature(.Cdecl, jit_type_void, &params[0], len(params), 1);
 
         j := rc.jit_ctx;
         f := function_create(j, init_gradients_proc_signature);
@@ -265,27 +403,11 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
 
             switch types[i] {
                 case type_info_of(V2):
-                    ax := insn_load_relative(f, min_value, 0, jit_type_float64);
-                    ay := insn_load_relative(f, min_value, size_of(f64), jit_type_float64);
-                    bx := insn_load_relative(f, mid_value, 0, jit_type_float64);
-                    by := insn_load_relative(f, mid_value, size_of(f64), jit_type_float64);
-                    cx := insn_load_relative(f, max_value, 0, jit_type_float64);
-                    cy := insn_load_relative(f, max_value, size_of(f64), jit_type_float64);
-
-                    x_step := calc_x_step(f, [3]Value{ax, bx, cx}, [3]Value{min_a, mid_a, max_a}, one_over_dx);
-                    y_step := calc_y_step(f, [3]Value{ay, by, cy}, [3]Value{min_a, mid_a, max_a}, one_over_dy);
-
+                    unimplemented();
                 case type_info_of(V3):
-                    ax := insn_load_relative(f, min_value, 0, jit_type_float64);
-                    ay := insn_load_relative(f, min_value, size_of(f64), jit_type_float64);
-                    az := insn_load_relative(f, min_value, size_of(f64) * 2, jit_type_float64);
-
+                    unimplemented();
                 case type_info_of(V4):
-                    ax := insn_load_relative(f, min_value, 0, jit_type_float64);
-                    ay := insn_load_relative(f, min_value, size_of(f64), jit_type_float64);
-                    az := insn_load_relative(f, min_value, size_of(f64) * 2, jit_type_float64);
-                    aw := insn_load_relative(f, min_value, size_of(f64) * 3, jit_type_float64);
-
+                    unimplemented();
                 case type_info_of(Color):
                     ar := insn_load_relative(f, min_value, 0, jit_type_float64);
                     ag := insn_load_relative(f, min_value, size_of(f64), jit_type_float64);
@@ -320,19 +442,19 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc($VI) -> $
                     insn_store_relative(f, gradients, gradient_offset + size_of(f64) * 4 * 4 + size_of(f64) * 2, y_step_b);
                     insn_store_relative(f, gradients, gradient_offset + size_of(f64) * 4 * 4 + size_of(f64) * 3, y_step_a);
                 case type_info_of(f64):
-
+                    unimplemented();
                 case:
                     assert(false);
             }
 
+            offset += c_type_size;
             gradient_offset += c_type_size * 5;
         }
 
         insn_return(f, nil);
-
+        
+        function_compile(f);
         init_gradients_proc = f;
-        dump_function(stdout, init_gradients_proc, strings.unsafe_string_to_cstring("init_gradients_proc"));
-        function_compile(init_gradients_proc);
     }
 
     j := rc.jit_ctx;
