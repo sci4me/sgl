@@ -100,14 +100,14 @@ fill_triangle :: proc(rc: ^Render_Context, a, b, c: $VI, program: ^Shader_Progra
         return (((values[1] - values[2]) * (min.x - max.x)) - ((values[0] - values[2]) * (mid.x - max.x))) * one_over_dy;
     } 
 
-    calc_color_step :: inline proc(values: [3]Color, vertices: [3]V4, s: f64, fn: proc(values: [3]f64, vertices: [3]V4, s: f64) -> f64) -> Color {
-        return Color{
-            fn({values[0].r, values[1].r, values[2].r}, vertices, s),
-            fn({values[0].g, values[1].g, values[2].g}, vertices, s),
-            fn({values[0].b, values[1].b, values[2].b}, vertices, s),
-            fn({values[0].a, values[1].a, values[2].a}, vertices, s)
-        };
-    }
+    // calc_color_step :: inline proc(values: [3]Color, vertices: [3]V4, s: f64, fn: proc(values: [3]f64, vertices: [3]V4, s: f64) -> f64) -> Color {
+    //     return Color{
+    //         fn({values[0].r, values[1].r, values[2].r}, vertices, s),
+    //         fn({values[0].g, values[1].g, values[2].g}, vertices, s),
+    //         fn({values[0].b, values[1].b, values[2].b}, vertices, s),
+    //         fn({values[0].a, values[1].a, values[2].a}, vertices, s)
+    //     };
+    // }
 
     make_gradients :: inline proc(min, mid, max: Vertex) -> Gradients {
         using g: Gradients;
