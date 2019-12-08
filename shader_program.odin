@@ -296,12 +296,12 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
         mid_a := value_get_param(f, 2);
         max_a := value_get_param(f, 3);
 
-        min_x := insn_load_relative(f, min_a, i64(offset_of(Vertex, pos)), jit_type_float64);
-        mid_x := insn_load_relative(f, mid_a, i64(offset_of(Vertex, pos)), jit_type_float64);
-        max_x := insn_load_relative(f, max_a, i64(offset_of(Vertex, pos)), jit_type_float64);
-        min_y := insn_load_relative(f, min_a, i64(offset_of(Vertex, pos) + size_of(f64)), jit_type_float64);
-        mid_y := insn_load_relative(f, mid_a, i64(offset_of(Vertex, pos) + size_of(f64)), jit_type_float64);
-        max_y := insn_load_relative(f, max_a, i64(offset_of(Vertex, pos) + size_of(f64)), jit_type_float64);
+        min_x := insn_load_relative(f, min_a, 0, jit_type_float64);
+        mid_x := insn_load_relative(f, mid_a, 0, jit_type_float64);
+        max_x := insn_load_relative(f, max_a, 0, jit_type_float64);
+        min_y := insn_load_relative(f, min_a, i64(size_of(f64)), jit_type_float64);
+        mid_y := insn_load_relative(f, mid_a, i64(size_of(f64)), jit_type_float64);
+        max_y := insn_load_relative(f, max_a, i64(size_of(f64)), jit_type_float64);
 
         one := value_create_float64_constant(f, jit_type_float64, 1);
         one_over_dx := insn_div(f, 
@@ -367,7 +367,7 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
 
             n_floats := c_type_size / size_of(f64);
             for i in 0..<n_floats {
-                j := size_of(f64) * i;
+                j := i * size_of(f64);
 
                 a := insn_load_relative(f, min_value, j, jit_type_float64);
                 b := insn_load_relative(f, mid_value, j, jit_type_float64);
@@ -376,8 +376,8 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
                 x_step := calc_x_step(f, [3]Value{a, b, c}, min_y, mid_y, max_y, one_over_dx);
                 y_step := calc_y_step(f, [3]Value{a, b, c}, min_x, mid_x, max_x, one_over_dy);
 
-                insn_store_relative(f, gradients, gradients_offset + size_of(f64) * 4 * 3 + j, x_step);
-                insn_store_relative(f, gradients, gradients_offset + size_of(f64) * 4 * 4 + j, y_step);
+                insn_store_relative(f, gradients, gradients_offset + c_type_size * 3 + j, x_step);
+                insn_store_relative(f, gradients, gradients_offset + c_type_size * 4 + j, y_step);
             }
 
             offset += c_type_size;
@@ -407,11 +407,11 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
             
             n_floats := c_type_size / size_of(f64);
             for i in 0..<n_floats {
-                j := i * size_of(f64);
-                a := insn_load_relative(f, edge, offset + j, jit_type_float64);
-                b := insn_load_relative(f, edge, offset + size_of(f64) + j, jit_type_float64);
+                j := offset + i * size_of(f64);
+                a := insn_load_relative(f, edge, j, jit_type_float64);
+                b := insn_load_relative(f, edge, j + c_type_size, jit_type_float64);
                 c := insn_add(f, a, b);    
-                insn_store_relative(f, edge, offset + j, c);
+                insn_store_relative(f, edge, j, c);
             }
 
             offset += c_type_size * 2;
@@ -486,16 +486,16 @@ make_shader_program :: proc(_rc: ^Render_Context, _vertex_shader: proc "c" ($VI)
 
             n_floats := c_type_size / size_of(f64);
             for i in 0..<n_floats {
-                j := size_of(f64) * i;
+                j := offset + i * size_of(f64);
                 
-                left := insn_load_relative(f, left, offset + j, jit_type_float64);
-                right := insn_load_relative(f, right, offset + j, jit_type_float64);
+                left := insn_load_relative(f, left, j, jit_type_float64);
+                right := insn_load_relative(f, right, j, jit_type_float64);
                 
                 x_step := insn_div(f, insn_sub(f, right, left), x_dist);
                 value := insn_add(f, left, insn_mul(f, x_step, x_prestep));
                 
-                insn_store_relative(f, current, offset + size_of(f64) * i, value);
-                insn_store_relative(f, current, offset + size_of(f64) * (4 + i), x_step);
+                insn_store_relative(f, current, j, value);
+                insn_store_relative(f, current, j + c_type_size, x_step);
             }
 
             offset += c_type_size * 2;
